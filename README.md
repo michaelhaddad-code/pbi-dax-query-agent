@@ -1,7 +1,3 @@
-# PBI DAX Query Generation Agent
-
-This agent takes a Power BI report and produces the DAX `EVALUATE` queries that reproduce each visual's underlying data — so Lara's agent can run them against Fabric and get the actual numbers for PowerPoint slides.
-
 ## How It Works
 
 The pipeline is 2 steps:
