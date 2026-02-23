@@ -1,0 +1,153 @@
+table 'Opportunity Calendar'
+	lineageTag: f05ebaf6-164a-4645-bd29-251d3858ef11
+
+	column Date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: f8f8c0be-e576-44fd-9ee5-23cce4263a28
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation SummarizationSetBy = Automatic
+
+	column MONTH
+		dataType: string
+		lineageTag: ece623e2-fde5-4a99-bb04-108a45b85480
+		summarizeBy: none
+		sourceColumn: MONTH
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RELATIVE 07 DAY PERIOD'
+		dataType: int64
+		formatString: 0
+		lineageTag: 473b14be-d53e-41de-b70c-b17050d3ff4a
+		summarizeBy: none
+		sourceColumn: RELATIVE 07 DAY PERIOD
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RELATIVE 30 DAY PERIOD'
+		dataType: int64
+		formatString: 0
+		lineageTag: 14974f1e-7342-4901-aec3-58dc18b3f52d
+		summarizeBy: none
+		sourceColumn: RELATIVE 30 DAY PERIOD
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RELATIVE DAY'
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 7e288c06-2f9f-48e0-a7e2-330ab90131c4
+		summarizeBy: none
+		sourceColumn: RELATIVE DAY
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RELATIVE MONTH'
+		dataType: int64
+		formatString: 0
+		lineageTag: b9573798-fc36-4ea6-a399-447eccf42288
+		summarizeBy: none
+		sourceColumn: RELATIVE MONTH
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'RELATIVE WEEK'
+		dataType: int64
+		formatString: 0
+		lineageTag: 775bf6bd-b2ed-450e-a37f-be869a2cfd08
+		summarizeBy: none
+		sourceColumn: RELATIVE WEEK
+
+		annotation SummarizationSetBy = Automatic
+
+	column WEEK
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: e29dc755-1566-4963-aea1-5ab3eae34a02
+		summarizeBy: none
+		sourceColumn: WEEK
+
+		annotation SummarizationSetBy = Automatic
+
+	column YEAR
+		dataType: int64
+		formatString: 0
+		lineageTag: 52e642ff-1c13-4791-8699-54bfa21c1fe2
+		summarizeBy: none
+		sourceColumn: YEAR
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'YEAR MONTH'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: a2f4ec13-260a-474a-9e06-d5c83b2b83a3
+		summarizeBy: none
+		sourceColumn: YEAR MONTH
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'YEAR WEEK'
+		dataType: string
+		lineageTag: b8110457-e56a-4cc1-8f70-72f89bf455ee
+		summarizeBy: none
+		sourceColumn: YEAR WEEK
+
+		annotation SummarizationSetBy = Automatic
+
+	column DAY
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 5f9f4561-e52f-4681-a285-65f5fe9b295e
+		summarizeBy: none
+		sourceColumn: DAY
+
+		annotation SummarizationSetBy = Automatic
+
+	column DaySeq
+		dataType: int64
+		formatString: 0
+		lineageTag: 1d98460f-7278-40c9-8903-be2bd28ffd3c
+		summarizeBy: none
+		sourceColumn: DaySeq
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'MONTH NUMBER'
+		dataType: int64
+		formatString: 0
+		lineageTag: c11064fc-442b-4deb-8cf9-16ed706b6d8f
+		summarizeBy: none
+		sourceColumn: MONTH NUMBER
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'YEAR MONTH NUMBER'
+		dataType: int64
+		formatString: 0
+		lineageTag: 36c2cd16-c054-42be-9d6b-dedb6fbaaa70
+		summarizeBy: none
+		sourceColumn: YEAR MONTH NUMBER
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'Opportunity Calendar-e96137a3-9df6-439b-a40b-8871bb9ea948' = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents("C:\Users\chamil\Desktop\Opportunity calendar.xlsx"), null, true),
+				    #"Date table for stores_Sheet" = Source{[Item="Date table for stores",Kind="Sheet"]}[Data],
+				    #"Promoted Headers" = Table.PromoteHeaders(#"Date table for stores_Sheet", [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"Date", type datetime}, {"MONTH", type text}, {"RELATIVE 07 DAY PERIOD", Int64.Type}, {"RELATIVE 30 DAY PERIOD", Int64.Type}, {"RELATIVE DAY", type datetime}, {"RELATIVE MONTH", Int64.Type}, {"RELATIVE WEEK", Int64.Type}, {"WEEK", type datetime}, {"YEAR", Int64.Type}, {"YEAR MONTH", type date}, {"YEAR WEEK", type text}, {"DAY", type datetime}, {"DaySeq", Int64.Type}, {"MONTH NUMBER", Int64.Type}, {"YEAR MONTH NUMBER", Int64.Type}})
+				in
+				    #"Changed Type"
+
+	changedProperty = Name
+
+	annotation PBI_ResultType = Table
+

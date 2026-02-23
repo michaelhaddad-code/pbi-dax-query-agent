@@ -1,0 +1,93 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 550,
+    "z": 4000,
+    "height": 334,
+    "width": 324,
+    "tabOrder": 4000
+  },
+  "objects": {
+    "categoryAxis": [
+      {
+        "properties": {
+          "invertAxis": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          },
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "0D"
+              }
+            }
+          },
+          "start": {
+            "expr": {
+              "Literal": {
+                "Value": "-0.4D"
+              }
+            }
+          },
+          "end": {
+            "expr": {
+              "Literal": {
+                "Value": "0.2D"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "title": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "10D"
+              }
+            }
+          },
+          "background": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "null"
+                  }
+                }
+              }
+            }
+          },
+          "titleWrap": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "padding": [
+      {
+        "properties": {
+          "right": {
+            "expr": {
+              "Literal": {
+                "Value": "5D"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 72,
+    "z": 9000,
+    "height": 34,
+    "width": 77,
+    "tabOrder": -6001
+  },
+  "objects": {
+    "text": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "9D"
+              }
+            }
+          },
+          "verticalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'middle'"
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "default"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#899EC0'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "hover"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#3B5E96'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "selected"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#B3B0AD'"
+                  }
+                }
+              }
+            }
+          },
+          "verticalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'top'"
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "disabled"
+        }
+      }
+    ]
+  }
+}

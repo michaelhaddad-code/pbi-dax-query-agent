@@ -1,0 +1,47 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 72,
+    "z": 9000,
+    "height": 34,
+    "width": 162,
+    "tabOrder": -1
+  },
+  "objects": {
+    "text": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "9D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "default"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#899EC0'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "hover"
+        }
+      }
+    ]
+  }
+}

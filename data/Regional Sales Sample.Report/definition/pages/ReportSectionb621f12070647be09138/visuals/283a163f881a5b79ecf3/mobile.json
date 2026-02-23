@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 75,
+    "y": 72,
+    "z": 10000,
+    "height": 34,
+    "width": 120,
+    "tabOrder": 2000
+  },
+  "objects": {
+    "text": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "9D"
+              }
+            }
+          },
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#627EAB'"
+                  }
+                }
+              }
+            }
+          },
+          "fontFamily": {
+            "expr": {
+              "Literal": {
+                "Value": "'''Segoe UI'', wf_segoe-ui_normal, helvetica, arial, sans-serif'"
+              }
+            }
+          },
+          "verticalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'middle'"
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "default"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#899EC0'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "hover"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#3B5E96'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "selected"
+        }
+      },
+      {
+        "properties": {
+          "fontColor": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "Literal": {
+                    "Value": "'#B3B0AD'"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "disabled"
+        }
+      }
+    ]
+  }
+}

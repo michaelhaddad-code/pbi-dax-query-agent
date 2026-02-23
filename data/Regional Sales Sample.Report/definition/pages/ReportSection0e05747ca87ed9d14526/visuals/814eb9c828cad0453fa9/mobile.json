@@ -1,0 +1,221 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 875,
+    "z": 13000,
+    "height": 434,
+    "width": 324,
+    "tabOrder": 6000
+  },
+  "objects": {
+    "values": [
+      {
+        "properties": {
+          "wordWrap": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnFormatting": [
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          },
+          "alignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Center'"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Won"
+        }
+      },
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue In Pipeline"
+        }
+      }
+    ],
+    "columnWidth": [
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "53.5006179378021D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Industries.Industry"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "65.1012741615175D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Won"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "77.37907532510377D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue In Pipeline"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "54.47127633072745D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Close %"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "46.83661087241875D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Won Average Deal Size"
+        }
+      }
+    ],
+    "columnHeaders": [
+      {
+        "properties": {
+          "alignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Center'"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "rowHeaders": [
+      {
+        "properties": {
+          "wordWrap": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "dropShadow": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "border": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          },
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 8,
+                    "Percent": -0.1
+                  }
+                }
+              }
+            }
+          },
+          "radius": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "title": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

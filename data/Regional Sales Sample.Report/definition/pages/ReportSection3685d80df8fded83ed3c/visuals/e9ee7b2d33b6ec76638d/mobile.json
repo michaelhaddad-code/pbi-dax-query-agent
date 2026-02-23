@@ -1,0 +1,188 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 1415,
+    "z": 20000,
+    "height": 837,
+    "width": 324,
+    "tabOrder": 13000
+  },
+  "objects": {
+    "columnWidth": [
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "55.95663586239993D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Owners.Manager"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "49.5121859136523D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Owners.Owner"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "60.80787219877988D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Open"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "58.86606439231814D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Close %"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "74D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Forecast by Win/Loss Ratio"
+        }
+      }
+    ],
+    "columnHeaders": [
+      {
+        "properties": {
+          "alignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Center'"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnFormatting": [
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Open"
+        }
+      },
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Forecast by Win/Loss Ratio"
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "dropShadow": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "border": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          },
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 9,
+                    "Percent": 0.2
+                  }
+                }
+              }
+            }
+          },
+          "radius": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "title": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

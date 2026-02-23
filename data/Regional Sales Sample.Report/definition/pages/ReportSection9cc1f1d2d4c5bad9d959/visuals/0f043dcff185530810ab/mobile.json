@@ -1,0 +1,4078 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 1,
+    "y": 1018,
+    "z": 16000,
+    "height": 191,
+    "width": 322,
+    "tabOrder": 9000
+  },
+  "objects": {
+    "general": [
+      {
+        "properties": {
+          "paragraphs": [
+            {
+              "textRuns": [
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "10001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "At "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V2"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and was "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5"
+                            }
+                          }
+                        },
+                        {
+                          "value": " higher than "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", which had the lowest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": []
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "10001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "10001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " for "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " ("
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ") was higher than "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " ("
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7"
+                            }
+                          }
+                        },
+                        {
+                          "value": ")."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " for both "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " was "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " tied for highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " with "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", which tied for second at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "All "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " of "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V11"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " tied for highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the lowest at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": " tied for highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the lowest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " was highest for "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " tied for highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43015L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "The top "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V17"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": " all had "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " of "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43016L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the lowest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43018L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the lowest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43019L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Blank"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43020L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " tied for highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the lowest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43021L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V4 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", followed by "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V6"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", which tied for second at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43022L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "More than 50 "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": " tied for the highest "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " at "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": []
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (1)"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43015L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43016L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43018L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43019L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43020L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43021L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43022L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (1)"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43015L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43016L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43018L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43019L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43020L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43021L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "43022L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (1)"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V12"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V13"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Across all "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V17 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V18"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V10"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V10"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V12"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V13"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V14"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Across all "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V17 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V18"
+                            }
+                          }
+                        },
+                        {
+                          "value": " and "
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V19"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V20"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V10"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V11 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V1 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V3 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V5 (2)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V7 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V8 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V9 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V10"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V11 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ". "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V12"
+                            }
+                          }
+                        },
+                        {
+                          "value": " had "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V13"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V14"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V15 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Across all "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V16 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " "
+                        },
+                        {
+                          "value": "Industry"
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": "Revenue Open"
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V17 (1)"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V18"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", "
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V19"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V20"
+                            }
+                          }
+                        },
+                        {
+                          "value": ", and "
+                        },
+                        {
+                          "value": " ranged from "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V21"
+                            }
+                          }
+                        },
+                        {
+                          "value": " to "
+                        },
+                        {
+                          "value": {
+                            "propertyIdentifier": {
+                              "objectName": "values",
+                              "propertyName": "expr"
+                            },
+                            "selector": {
+                              "id": "V22"
+                            }
+                          }
+                        },
+                        {
+                          "value": "."
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "Blank."
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": []
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (2)"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (2)"
+                    }
+                  }
+                },
+                {
+                  "cases": [
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56001L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56002L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56003L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56004L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56005L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56006L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56007L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56008L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56009L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56010L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56011L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56012L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    },
+                    {
+                      "pattern": {
+                        "expr": {
+                          "Literal": {
+                            "Value": "56013L"
+                          }
+                        }
+                      },
+                      "textRuns": [
+                        {
+                          "value": "\n"
+                        }
+                      ]
+                    }
+                  ],
+                  "defaultCase": {
+                    "textRuns": [
+                      {
+                        "value": "__Newline__"
+                      }
+                    ]
+                  },
+                  "expression": {
+                    "propertyIdentifier": {
+                      "objectName": "values",
+                      "propertyName": "expr"
+                    },
+                    "selector": {
+                      "id": "TemplateIdColumnRole (2)"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "border": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          },
+          "radius": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          },
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 8,
+                    "Percent": -0.1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "dropShadow": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

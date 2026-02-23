@@ -1,0 +1,33 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 211,
+    "y": 942,
+    "z": 6000,
+    "height": 32,
+    "width": 113,
+    "tabOrder": 1000
+  },
+  "objects": {
+    "general": [
+      {
+        "properties": {
+          "paragraphs": [
+            {
+              "textRuns": [
+                {
+                  "value": "obviEnce llc ©",
+                  "textStyle": {
+                    "fontFamily": "Segoe UI Light",
+                    "fontSize": "8pt"
+                  }
+                }
+              ],
+              "horizontalTextAlignment": "right"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

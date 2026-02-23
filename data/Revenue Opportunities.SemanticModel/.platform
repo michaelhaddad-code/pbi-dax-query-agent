@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Revenue Opportunities"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "fa470fda-8896-431a-ad3b-0fd426e1b221"
+  }
+}

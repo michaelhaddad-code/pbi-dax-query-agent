@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Revenue Opportunities"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "37af936e-c0bb-48f4-b841-c51da20e68bc"
+  }
+}

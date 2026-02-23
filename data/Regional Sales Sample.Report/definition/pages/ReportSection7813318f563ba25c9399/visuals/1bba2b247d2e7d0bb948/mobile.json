@@ -1,0 +1,43 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 108,
+    "y": 46,
+    "z": 6000,
+    "height": 31,
+    "width": 108,
+    "tabOrder": 6000
+  },
+  "objects": {
+    "text": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "10D"
+              }
+            }
+          },
+          "verticalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'top'"
+              }
+            }
+          },
+          "horizontalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'center'"
+              }
+            }
+          }
+        },
+        "selector": {
+          "id": "default"
+        }
+      }
+    ]
+  }
+}

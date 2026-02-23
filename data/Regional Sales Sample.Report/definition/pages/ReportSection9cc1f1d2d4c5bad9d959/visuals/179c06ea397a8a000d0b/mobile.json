@@ -1,0 +1,263 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 1216,
+    "z": 17000,
+    "height": 547,
+    "width": 324,
+    "tabOrder": 10000
+  },
+  "objects": {
+    "values": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          },
+          "wordWrap": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnHeaders": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          },
+          "alignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Center'"
+              }
+            }
+          },
+          "fontFamily": {
+            "expr": {
+              "Literal": {
+                "Value": "'''Segoe UI Bold'', wf_segoe-ui_bold, helvetica, arial, sans-serif'"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnWidth": [
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "55.89198113616813D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Territories.Territory"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "40D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Avg(Opportunities.Days Remaining In Pipeline)"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "46D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Sum(Opportunities.Weeks Open)"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "54.530967631918905D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Industries.Industry"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "55.65740105638138D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Owners.Owner"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "53.42844411912376D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.PipelineStep"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "44.21669122506592D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Rating"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "58.81155693293039D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Products.Product"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "55.85312613355456D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Avg(Opportunities.Discount)"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "55.10572727714893D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Sum(Opportunities.Value)"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "58.19579403298491D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Accounts.Account Name"
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "border": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          },
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 8,
+                    "Percent": -0.1
+                  }
+                }
+              }
+            }
+          },
+          "radius": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "dropShadow": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainerMobileState/2.2.0/schema.json",
+  "position": {
+    "x": 0,
+    "y": 1317,
+    "z": 14000,
+    "height": 550,
+    "width": 324,
+    "tabOrder": 7000
+  },
+  "objects": {
+    "grid": [
+      {
+        "properties": {
+          "rowPadding": {
+            "expr": {
+              "Literal": {
+                "Value": "4D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnWidth": [
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "67.4542446337662D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Accounts.Account Name"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "56.47586457382365D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Owners.Manager"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "47.51272101847658D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Owners.Owner"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "63.48180400918045D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Won"
+        }
+      },
+      {
+        "properties": {
+          "value": {
+            "expr": {
+              "Literal": {
+                "Value": "59.39365775803774D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue In Pipeline"
+        }
+      }
+    ],
+    "columnHeaders": [
+      {
+        "properties": {
+          "alignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Center'"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "columnFormatting": [
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue Won"
+        }
+      },
+      {
+        "properties": {
+          "labelDisplayUnits": {
+            "expr": {
+              "Literal": {
+                "Value": "1000000D"
+              }
+            }
+          }
+        },
+        "selector": {
+          "metadata": "Opportunities.Revenue In Pipeline"
+        }
+      }
+    ]
+  },
+  "visualContainerObjects": {
+    "border": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "true"
+              }
+            }
+          },
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 8,
+                    "Percent": -0.1
+                  }
+                }
+              }
+            }
+          },
+          "radius": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "dropShadow": [
+      {
+        "properties": {
+          "show": {
+            "expr": {
+              "Literal": {
+                "Value": "false"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "title": [
+      {
+        "properties": {
+          "fontSize": {
+            "expr": {
+              "Literal": {
+                "Value": "8D"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}
