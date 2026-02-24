@@ -7,7 +7,7 @@ When a new conversation starts, immediately greet the user with the following me
 
 **PBI DAX Query Generation Agent**
 
-I reverse-engineer Power BI visuals into executable DAX queries. Give me a report, and I'll produce the `EVALUATE` queries that reproduce each visual's underlying data.
+I reverse-engineer Power BI visuals into executable DAX queries — and now I can also **generate chart images** from the query results that resemble the original PBI visuals.
 
 **Three ways to feed me input:**
 
@@ -15,7 +15,7 @@ I reverse-engineer Power BI visuals into executable DAX queries. Give me a repor
 2. **CSV / Excel exports** — Right-click a visual in Power BI Desktop, choose "Export data", and give me the resulting file. I'll infer field roles from the data and match against the semantic model. *(Quick per-visual approach.)*
 3. **Screenshots** — Give me a PNG/JPG of a Power BI visual. I'll read the chart, identify the visual type, fields, and measures, then build the metadata. *(Works when you only have an image.)*
 
-All three paths produce the same standardized metadata, which I then convert into DAX queries.
+All three paths produce the same standardized metadata, which I then convert into DAX queries. Once you execute those queries and get tabular data back, I can generate **chart images (PNG)** that visually match the original PBI visuals using Skill 5.
 
 **Sample reports you can try me on right now (already in `data/`):**
 
@@ -44,7 +44,11 @@ This is the **data retrieval layer** for Lara's AI-Powered Slide Generation proj
                             [Shared] tmdl_parser.py (semantic model matching)      |
                             [Shared] bookmark_parser.py (bookmark filter parsing)--+
 
-  DAX queries -------> Lara's Agent --> Fabric Semantic Model --> data --> AI --> PowerPoint slides
+  DAX queries --> Execute against Fabric --> tabular CSV data --+--> [Skill 5] chart_generator.py --> PNG chart images
+                                                                |
+  Metadata Excel (visual type + field roles) -------------------+
+
+  Chart images -------> Lara's Agent --> AI insights --> PowerPoint slides
   Bookmark DAX queries--^  (filtered per-bookmark view)
 ```
 
@@ -65,6 +69,7 @@ AI-generated DAX queries (Method 2) are a future possibility for complex edge ca
 - pandas, openpyxl (Excel I/O)
 - regex (TMDL file parsing, DAX formula analysis)
 - urllib.request, base64 (stdlib -- Claude Vision API for Skill 4)
+- plotly, kaleido (chart rendering + static image export for Skill 5)
 - Power BI Desktop PBIP format (JSON + TMDL files)
 
 ## Project Structure
@@ -77,7 +82,8 @@ powerpointTask/
 │   ├── extract_metadata.py         # Skill 1: PBIP metadata extraction (+Bookmarks sheet)
 │   ├── dax_query_builder.py        # Skill 2: DAX query generation (+Bookmark DAX Queries sheet)
 │   ├── read_excel_export.py        # Skill 3: CSV/Excel export reader
-│   └── analyze_screenshot.py       # Skill 4: Screenshot analyzer (Claude Vision)
+│   ├── analyze_screenshot.py       # Skill 4: Screenshot analyzer (Claude Vision)
+│   └── chart_generator.py          # Skill 5: Chart image generator (plotly)
 ├── data/                           # Input PBIP folders + CSV/screenshots go here
 │   ├── <ReportName>.Report/        # PBIP report definition (may include bookmarks/)
 │   ├── <ReportName>.SemanticModel/ # PBIP semantic model
@@ -242,24 +248,95 @@ python skills/analyze_screenshot.py \
   --output "output/screenshot_metadata.xlsx"
 ```
 
-### Orchestrator: Run Skills in Sequence
-All three input skills (1, 3, 4) produce the same metadata Excel. Feed any of them into Skill 2.
+### Skill 5: chart_generator.py
+Generates PBI-style chart images (PNG) from DAX query tabular data. Uses plotly for all chart types with a PBI-themed visual style. Supports 16 chart renderers covering all common PBI visual types.
+
+- **Input (two modes):**
+  - **Mode 1 (CSV + Metadata):** `--csv` data file + `--metadata` Excel from Skill 1 + `--visual` name to match
+  - **Mode 2 (CSV + Screenshot):** `--csv` data file + `--visual-type` + `--field` args (agent passes visual info from screenshot)
+  - `--output` — Output directory for chart images (default: `output/charts/`)
+  - `--width` / `--height` / `--scale` — Image dimensions and resolution (default: 1100x500, scale=2 for 144 DPI)
+- **Output:** PNG chart image saved to output directory
+- **Chart type routing:** `CHART_TYPE_ROUTER` dict maps PBI visual type identifiers to renderer functions:
+  - **Bar/Column:** `barChart`, `clusteredBarChart`, `columnChart`, `clusteredColumnChart` → `go.Bar` (horizontal or vertical)
+  - **Stacked:** `stackedBarChart`, `stackedColumnChart`, `hundredPercentStacked*` → `go.Bar` with `barmode="stack"`
+  - **Line/Area:** `lineChart`, `areaChart`, `stackedAreaChart` → `go.Scatter` with lines/fill
+  - **Pie/Donut:** `pieChart`, `donutChart` → `go.Pie` (hole=0 or 0.4)
+  - **Waterfall:** `waterfallChart` → `go.Waterfall` (native plotly)
+  - **Combo:** `lineStackedColumnComboChart`, `lineClusteredColumnComboChart` → `make_subplots` with dual Y-axis
+  - **Funnel/Treemap:** `funnelChart`, `treemap` → `go.Funnel`, `go.Treemap`
+  - **Gauge/Card/KPI:** `gauge`, `card`, `multiRowCard`, `kpi` → `go.Indicator`
+  - **Table:** `tableEx`, `pivotTable` → `go.Table` (also fallback for unknown types)
+  - **Skip:** slicers, maps, AI visuals (not meaningful as static charts)
+- **Key data classes:**
+  - `VisualSpec` — page_name, visual_name, visual_type, grouping_columns, measure_columns, y2_columns, dax_pattern
+- **Key functions:**
+  - `generate_chart(df, spec)` — main router; looks up visual type in `CHART_TYPE_ROUTER`, calls the matching renderer, returns a plotly Figure
+  - `save_chart(fig, output_path, width, height, scale)` — exports plotly Figure to PNG via kaleido
+  - `classify_columns(df, spec)` — matches VisualSpec field names to DataFrame columns (case-insensitive), falls back to dtype inference
+  - `_prepare_series_data(df, categories, values)` — shared pivot helper for bar/column/stacked renderers; pivots 2nd grouping column into legend series
+  - `parse_visual_from_metadata(metadata_excel, visual_name)` — reads Skill 1 output, builds VisualSpec using `classify_field()` from dax_query_builder
+- **PBI styling:** All charts use PBI's default color palette (`#118DFF`, `#12239E`, `#E66C37`, ...), Segoe UI font, white background, light gray gridlines
+- **Dependencies:** plotly, kaleido, pandas, openpyxl
 
 ```bash
-# Path A: PBIP files (Skill 1 -> Skill 2)
+# Mode 1: CSV + Metadata Excel
+python skills/chart_generator.py \
+  --csv "output/revenue_data.csv" \
+  --metadata "output/pbi_report_metadata.xlsx" \
+  --visual "Pipeline by Stage" \
+  --output "output/charts/"
+
+# Mode 2: CSV + Screenshot (agent-driven)
+python skills/chart_generator.py \
+  --csv "output/revenue_data.csv" \
+  --visual-type barChart \
+  --visual-name "Pipeline by Stage" \
+  --field "Sales Stage:grouping" \
+  --field "Opportunity Count:measure" \
+  --output "output/charts/"
+
+# Combo chart with secondary axis
+python skills/chart_generator.py \
+  --csv "output/combo_data.csv" \
+  --visual-type lineClusteredColumnComboChart \
+  --visual-name "Revenue and Growth" \
+  --field "Month:grouping" \
+  --field "Revenue:measure" \
+  --field "Growth Rate:y2" \
+  --output "output/charts/"
+```
+
+### Orchestrator: Run Skills in Sequence
+All three input skills (1, 3, 4) produce the same metadata Excel. Feed any of them into Skill 2. After executing the DAX queries, feed the tabular results into Skill 5 for chart generation.
+
+```bash
+# Path A: PBIP files (Skill 1 -> Skill 2 -> execute DAX -> Skill 5)
 python skills/extract_metadata.py \
   --report-root "data/<ReportName>.Report/definition" \
   --model-root "data/<ReportName>.SemanticModel/definition" \
   --output "output/pbi_report_metadata.xlsx"
 python skills/dax_query_builder.py "output/pbi_report_metadata.xlsx" "output/dax_queries.xlsx"
+# User executes DAX queries against Fabric, saves results as CSV
+python skills/chart_generator.py \
+  --csv "output/visual_data.csv" \
+  --metadata "output/pbi_report_metadata.xlsx" \
+  --visual "Pipeline by Stage" \
+  --output "output/charts/"
 
-# Path B: CSV/Excel export (Skill 3 -> Skill 2)
+# Path B: CSV/Excel export (Skill 3 -> Skill 2 -> execute DAX -> Skill 5)
 python skills/read_excel_export.py "data/export.csv" \
   --model-root "data/<ReportName>.SemanticModel/definition" \
   --output "output/pbi_report_metadata.xlsx"
 python skills/dax_query_builder.py "output/pbi_report_metadata.xlsx" "output/dax_queries.xlsx"
+# User executes DAX queries against Fabric, saves results as CSV
+python skills/chart_generator.py \
+  --csv "output/visual_data.csv" \
+  --metadata "output/pbi_report_metadata.xlsx" \
+  --visual "Sales by Region" \
+  --output "output/charts/"
 
-# Path C: Screenshot (Agent reads image -> Skill 4 -> Skill 2)
+# Path C: Screenshot (Agent reads image -> Skill 4 -> Skill 2, or directly to Skill 5)
 # Agent views screenshot, identifies: pieChart, "Sales by Region", fields Region (grouping) + Sales (measure)
 python skills/analyze_screenshot.py \
   --visual-type pieChart \
@@ -269,6 +346,14 @@ python skills/analyze_screenshot.py \
   --model-root "data/<ReportName>.SemanticModel/definition" \
   --output "output/pbi_report_metadata.xlsx"
 python skills/dax_query_builder.py "output/pbi_report_metadata.xlsx" "output/dax_queries.xlsx"
+# Or skip straight to chart generation with CSV + screenshot info:
+python skills/chart_generator.py \
+  --csv "output/visual_data.csv" \
+  --visual-type pieChart \
+  --visual-name "Sales by Region" \
+  --field "Region:grouping" \
+  --field "Sales:measure" \
+  --output "output/charts/"
 ```
 
 ## Test Data
@@ -341,6 +426,7 @@ The pipeline has been manually cross-checked against three reports:
 - **Skill 3 (CSV reader):** Field classification relies on value heuristics (currency/percentage/numeric patterns). Ambiguous columns (e.g., IDs that look numeric) may be misclassified. Use `--model-root` for accurate matching.
 - **Skill 4 (screenshots):** The agent identifies fields visually — accuracy depends on image clarity and whether field names are visible in the chart (axis labels, headers, legend). Always verify detected fields.
 - **Skill 3/4 without model:** Unmatched fields use placeholder `'<Table>'[FieldName]` which must be manually corrected before DAX queries can execute.
+- **Skill 5 (chart generator):** Charts are PBI-styled approximations, not pixel-perfect replicas. Combo chart bar/line split defaults to "last measure = line" when no Visual Y2 metadata is available. Map visuals, slicers, and AI visuals are skipped (not meaningful as static images). Ribbon charts are rendered as stacked area (closest plotly equivalent).
 
 ## Chat Presentation Rules
 - **Always detect and apply ALL filters** — report-level, page-level, and visual-level — when presenting a DAX query in chat. Check the Filter Expressions sheet for any filter that applies to the visual (by scope: report filters apply to all visuals, page filters apply to all visuals on that page, visual filters apply to that specific visual).
