@@ -3,16 +3,17 @@
 Skill 5: chart_generator.py
 PBI AutoGov -- Chart Generator
 
-Generates chart images (PNG) from DAX query tabular data that visually
-resemble the original Power BI visuals. Uses plotly for all chart types
-with a PBI-styled theme.
+Generates chart visuals from DAX query tabular data that visually resemble
+the original Power BI visuals. Supports two output formats:
+  - PPTX (default): single-slide .pptx with native editable chart or PNG fallback
+  - PNG (legacy): plotly-rendered static image
 
 Two input modes:
   Mode 1 (CSV + Metadata): reads metadata Excel to get visual type + field roles
   Mode 2 (CSV + Screenshot): agent passes visual type + fields as CLI args
 
 Input:  CSV file with DAX query results + visual metadata (Excel or CLI args)
-Output: PNG chart image saved to output directory
+Output: .pptx file (one slide per visual) or .png image
 
 Usage:
     # Mode 1: CSV + Metadata Excel
@@ -36,12 +37,20 @@ import argparse
 import os
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+from pptx import Presentation as _PptxFactory
+from pptx.presentation import Presentation as PptxPresentation  # actual class for isinstance
+from pptx.chart.data import CategoryChartData, XyChartData
+from pptx.util import Inches, Pt, Emu
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
+from pptx.dml.color import RGBColor
 
 
 # =============================================================================
@@ -55,6 +64,62 @@ PBI_COLORS = [
 ]
 
 PBI_FONT = "Segoe UI"
+
+# PBI colors as RGBColor tuples for python-pptx native charts
+PBI_RGB_COLORS = [
+    RGBColor(0x11, 0x8D, 0xFF),  # #118DFF
+    RGBColor(0x12, 0x23, 0x9E),  # #12239E
+    RGBColor(0xE6, 0x6C, 0x37),  # #E66C37
+    RGBColor(0x6B, 0x00, 0x7B),  # #6B007B
+    RGBColor(0xE0, 0x44, 0xA7),  # #E044A7
+    RGBColor(0x74, 0x4E, 0xC2),  # #744EC2
+    RGBColor(0xD9, 0xB3, 0x00),  # #D9B300
+    RGBColor(0xD6, 0x45, 0x50),  # #D64550
+    RGBColor(0x19, 0x72, 0x78),  # #197278
+    RGBColor(0x1A, 0xAB, 0x40),  # #1AAB40
+]
+
+# Slide dimensions: 16:9 widescreen
+SLIDE_WIDTH = Inches(13.333)
+SLIDE_HEIGHT = Inches(7.5)
+
+# Chart placement: centered with margins for title
+CHART_LEFT = Inches(0.5)
+CHART_TOP = Inches(0.8)
+CHART_WIDTH = Inches(12.333)
+CHART_HEIGHT = Inches(6.2)
+
+# Maps PBI visual type -> XL_CHART_TYPE enum for native python-pptx rendering
+NATIVE_CHART_MAP = {
+    # Bar charts (horizontal)
+    "barChart": XL_CHART_TYPE.BAR_CLUSTERED,
+    "clusteredBarChart": XL_CHART_TYPE.BAR_CLUSTERED,
+    "stackedBarChart": XL_CHART_TYPE.BAR_STACKED,
+    "hundredPercentStackedBarChart": XL_CHART_TYPE.BAR_STACKED_100,
+    # Column charts (vertical)
+    "columnChart": XL_CHART_TYPE.COLUMN_CLUSTERED,
+    "clusteredColumnChart": XL_CHART_TYPE.COLUMN_CLUSTERED,
+    "stackedColumnChart": XL_CHART_TYPE.COLUMN_STACKED,
+    "hundredPercentStackedColumnChart": XL_CHART_TYPE.COLUMN_STACKED_100,
+    # Line
+    "lineChart": XL_CHART_TYPE.LINE_MARKERS,
+    # Area
+    "areaChart": XL_CHART_TYPE.AREA,
+    "stackedAreaChart": XL_CHART_TYPE.AREA_STACKED,
+    # Pie and donut
+    "pieChart": XL_CHART_TYPE.PIE,
+    "donutChart": XL_CHART_TYPE.DOUGHNUT,
+    # Scatter
+    "scatterChart": XL_CHART_TYPE.XY_SCATTER,
+}
+
+# Visual types that require plotly PNG fallback (no native python-pptx support)
+PNG_FALLBACK_TYPES = {
+    "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
+    "waterfallChart", "funnelChart", "treemap",
+    "gauge", "card", "cardVisual", "multiRowCard", "kpi",
+    "tableEx", "pivotTable", "ribbonChart",
+}
 
 
 # =============================================================================
@@ -253,6 +318,10 @@ def _render_bar(df, spec):
     if not categories or not values:
         return _render_table(df, spec)
 
+    # Sort by first measure descending for clean ranking (like PBI default)
+    if len(values) == 1 and len(categories) == 1:
+        df = df.sort_values(values[0], ascending=False)  # highest at top with reversed y-axis
+
     cat_labels, series, needs_legend = _prepare_series_data(df, categories, values)
 
     fig = go.Figure()
@@ -267,6 +336,8 @@ def _render_bar(df, spec):
         title=spec.visual_name,
         barmode="group",
         showlegend=needs_legend,
+        xaxis_title=values[0] if len(values) == 1 else None,
+        yaxis_title=categories[0] if categories else None,
     )
     fig.update_yaxes(autorange="reversed")  # top-to-bottom ordering like PBI
     return fig
@@ -279,6 +350,10 @@ def _render_column(df, spec):
     categories, values = classify_columns(df, spec)
     if not categories or not values:
         return _render_table(df, spec)
+
+    # Sort by first measure descending
+    if len(values) == 1 and len(categories) == 1:
+        df = df.sort_values(values[0], ascending=False)
 
     cat_labels, series, needs_legend = _prepare_series_data(df, categories, values)
 
@@ -294,6 +369,8 @@ def _render_column(df, spec):
         title=spec.visual_name,
         barmode="group",
         showlegend=needs_legend,
+        xaxis_title=categories[0] if categories else None,
+        yaxis_title=values[0] if len(values) == 1 else None,
     )
     return fig
 
@@ -320,6 +397,8 @@ def _render_stacked_bar(df, spec):
         "title": spec.visual_name,
         "barmode": "stack",
         "showlegend": True,
+        "xaxis_title": values[0] if len(values) == 1 else None,
+        "yaxis_title": categories[0] if categories else None,
     }
     if "hundredPercent" in spec.visual_type:
         layout_kwargs["barnorm"] = "percent"
@@ -350,6 +429,8 @@ def _render_stacked_column(df, spec):
         "title": spec.visual_name,
         "barmode": "stack",
         "showlegend": True,
+        "xaxis_title": categories[0] if categories else None,
+        "yaxis_title": values[0] if len(values) == 1 else None,
     }
     if "hundredPercent" in spec.visual_type:
         layout_kwargs["barnorm"] = "percent"
@@ -399,6 +480,8 @@ def _render_line(df, spec):
         **get_pbi_plotly_layout(),
         title=spec.visual_name,
         showlegend=needs_legend,
+        xaxis_title=categories[0] if categories else None,
+        yaxis_title=values[0] if len(values) == 1 else None,
     )
     return fig
 
@@ -437,6 +520,8 @@ def _render_area(df, spec):
         **get_pbi_plotly_layout(),
         title=spec.visual_name,
         showlegend=len(values) > 1,
+        xaxis_title=categories[0] if categories else None,
+        yaxis_title=values[0] if len(values) == 1 else None,
     )
     return fig
 
@@ -447,8 +532,32 @@ def _render_pie(df, spec):
     """Pie chart. Labels from first grouping column, values from first measure.
 
     Only uses first measure (pie charts show one value series). Warns if multiple.
+    Measures-only case: each measure name becomes a slice label, each value a slice size.
     """
     categories, values = classify_columns(df, spec)
+
+    # Measures-only: no grouping column, each measure is a slice
+    if not categories and len(values) >= 2:
+        row = df.iloc[0]
+        slice_labels = values
+        slice_values = [float(row[v]) if pd.notna(row[v]) else 0 for v in values]
+        fig = go.Figure(go.Pie(
+            labels=slice_labels,
+            values=slice_values,
+            marker={"colors": PBI_COLORS[:len(values)]},
+            textinfo="percent+label",
+            textfont={"size": 11, "family": PBI_FONT},
+            hole=0,
+        ))
+        fig.update_layout(
+            title=spec.visual_name,
+            font={"family": PBI_FONT, "size": 12, "color": "#333333"},
+            paper_bgcolor="white",
+            showlegend=True,
+            legend={"font": {"size": 10}},
+        )
+        return fig
+
     if not categories or not values:
         return _render_table(df, spec)
 
@@ -477,8 +586,34 @@ def _render_pie(df, spec):
 # ---- Donut chart ----
 
 def _render_donut(df, spec):
-    """Donut chart. Same as pie but with a hole in the center (hole=0.4)."""
+    """Donut chart. Same as pie but with a hole in the center (hole=0.4).
+
+    Measures-only case: each measure name becomes a slice label, each value a slice size.
+    """
     categories, values = classify_columns(df, spec)
+
+    # Measures-only: no grouping column, each measure is a slice
+    if not categories and len(values) >= 2:
+        row = df.iloc[0]
+        slice_labels = values
+        slice_values = [float(row[v]) if pd.notna(row[v]) else 0 for v in values]
+        fig = go.Figure(go.Pie(
+            labels=slice_labels,
+            values=slice_values,
+            marker={"colors": PBI_COLORS[:len(values)]},
+            textinfo="percent+label+value",
+            textfont={"size": 11, "family": PBI_FONT},
+            hole=0.4,
+        ))
+        fig.update_layout(
+            title=spec.visual_name,
+            font={"family": PBI_FONT, "size": 12, "color": "#333333"},
+            paper_bgcolor="white",
+            showlegend=True,
+            legend={"font": {"size": 10}},
+        )
+        return fig
+
     if not categories or not values:
         return _render_table(df, spec)
 
@@ -597,6 +732,8 @@ def _render_waterfall(df, spec):
         **get_pbi_plotly_layout(),
         title=spec.visual_name,
         showlegend=False,
+        xaxis_title=categories[0] if categories else None,
+        yaxis_title=values[0] if len(values) == 1 else None,
     )
     return fig
 
@@ -662,8 +799,15 @@ def _render_combo(df, spec):
         showlegend=True,
         margin=layout["margin"],
     )
-    fig.update_xaxes(showgrid=False, linecolor="#E0E0E0")
+    fig.update_xaxes(showgrid=False, linecolor="#E0E0E0",
+                     title_text=categories[0] if categories else None)
     fig.update_yaxes(showgrid=True, gridcolor="#E0E0E0", linecolor="#E0E0E0")
+    if bar_measures:
+        fig.update_yaxes(title_text=bar_measures[0] if len(bar_measures) == 1 else None,
+                         secondary_y=False)
+    if line_measures:
+        fig.update_yaxes(title_text=line_measures[0] if len(line_measures) == 1 else None,
+                         secondary_y=True)
     return fig
 
 
@@ -688,6 +832,8 @@ def _render_funnel(df, spec):
         paper_bgcolor="white",
         plot_bgcolor="white",
         showlegend=False,
+        yaxis_title=categories[0] if categories else None,
+        xaxis_title=values[0] if len(values) == 1 else None,
     )
     return fig
 
@@ -1022,17 +1168,275 @@ SKIP_TYPES = {
 
 
 # =============================================================================
+# NATIVE PPTX CHART HELPERS
+# =============================================================================
+
+def _create_presentation():
+    """Create a blank 16:9 widescreen Presentation."""
+    prs = _PptxFactory()
+    prs.slide_width = SLIDE_WIDTH
+    prs.slide_height = SLIDE_HEIGHT
+    return prs
+
+
+def _build_category_chart_data(df, categories, values):
+    """Build CategoryChartData from DataFrame for bar/column/line/area/pie charts.
+
+    Handles the pivot logic: when 2+ grouping columns exist, the second
+    column is pivoted into legend series (like PBI's "Legend" well).
+
+    Returns:
+        (CategoryChartData, num_series: int)
+    """
+    chart_data = CategoryChartData()
+
+    if len(categories) >= 2 and len(values) == 1:
+        # Pivot second grouping column into series
+        pivot_df = df.pivot_table(
+            index=categories[0], columns=categories[1],
+            values=values[0], aggfunc="sum"
+        ).fillna(0)
+        chart_data.categories = [str(c) for c in pivot_df.index]
+        for col in pivot_df.columns:
+            chart_data.add_series(str(col), pivot_df[col].tolist())
+        return chart_data, len(pivot_df.columns)
+    else:
+        chart_data.categories = df[categories[0]].astype(str).tolist()
+        for v in values:
+            chart_data.add_series(v, df[v].tolist())
+        return chart_data, len(values)
+
+
+def _build_xy_chart_data(df, spec):
+    """Build XyChartData for scatter charts.
+
+    Returns:
+        (XyChartData, num_series: int) or (None, 0) if insufficient data
+    """
+    categories, values = classify_columns(df, spec)
+    chart_data = XyChartData()
+
+    if len(values) < 2:
+        return None, 0
+
+    num_series = 0
+    if categories:
+        groups = df.groupby(categories[0])
+        for name, group in groups:
+            series = chart_data.add_series(str(name))
+            for _, row in group.iterrows():
+                x_val = float(row[values[0]]) if pd.notna(row[values[0]]) else 0
+                y_val = float(row[values[1]]) if pd.notna(row[values[1]]) else 0
+                series.add_data_point(x_val, y_val)
+            num_series += 1
+    else:
+        series = chart_data.add_series("Data")
+        for _, row in df.iterrows():
+            x_val = float(row[values[0]]) if pd.notna(row[values[0]]) else 0
+            y_val = float(row[values[1]]) if pd.notna(row[values[1]]) else 0
+            series.add_data_point(x_val, y_val)
+        num_series = 1
+
+    return chart_data, num_series
+
+
+def _style_native_chart(chart, spec, num_series, categories=None, values=None):
+    """Apply PBI styling to a native python-pptx chart.
+
+    Sets title, legend, series colors, axis formatting, and axis labels
+    to match PBI defaults.
+
+    Args:
+        chart: python-pptx Chart object
+        spec: VisualSpec
+        num_series: number of data series (for legend logic)
+        categories: list of category column names (for axis labels)
+        values: list of measure column names (for axis labels)
+    """
+    categories = categories or []
+    values = values or []
+
+    # Title
+    chart.has_title = True
+    title_para = chart.chart_title.text_frame.paragraphs[0]
+    title_para.text = spec.visual_name
+    title_para.font.size = Pt(18)
+    title_para.font.name = PBI_FONT
+    title_para.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    # Legend at bottom (show when multiple series)
+    if num_series > 1:
+        chart.has_legend = True
+        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.legend.include_in_layout = False
+        chart.legend.font.size = Pt(10)
+        chart.legend.font.name = PBI_FONT
+    else:
+        chart.has_legend = False
+
+    # Apply PBI colors to each series
+    plot = chart.plots[0]
+    for i, series in enumerate(plot.series):
+        fill = series.format.fill
+        fill.solid()
+        fill.fore_color.rgb = PBI_RGB_COLORS[i % len(PBI_RGB_COLORS)]
+
+    # Axis font styling and labels
+    try:
+        cat_ax = chart.category_axis
+        cat_ax.tick_labels.font.size = Pt(10)
+        cat_ax.tick_labels.font.name = PBI_FONT
+        cat_ax.tick_labels.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+        # Category axis label (X-axis for column/line, Y-axis for bar)
+        if categories:
+            cat_ax.has_title = True
+            cat_ax.axis_title.text_frame.paragraphs[0].text = categories[0]
+            cat_ax.axis_title.text_frame.paragraphs[0].font.size = Pt(12)
+            cat_ax.axis_title.text_frame.paragraphs[0].font.name = PBI_FONT
+            cat_ax.axis_title.text_frame.paragraphs[0].font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+    except Exception:
+        pass  # pie/donut charts have no category axis
+
+    try:
+        val_ax = chart.value_axis
+        val_ax.tick_labels.font.size = Pt(10)
+        val_ax.tick_labels.font.name = PBI_FONT
+        val_ax.tick_labels.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+        val_ax.has_major_gridlines = True
+        val_ax.major_gridlines.format.line.color.rgb = RGBColor(0xE0, 0xE0, 0xE0)
+        # Value axis label
+        if len(values) == 1:
+            val_ax.has_title = True
+            val_ax.axis_title.text_frame.paragraphs[0].text = values[0]
+            val_ax.axis_title.text_frame.paragraphs[0].font.size = Pt(12)
+            val_ax.axis_title.text_frame.paragraphs[0].font.name = PBI_FONT
+            val_ax.axis_title.text_frame.paragraphs[0].font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+    except Exception:
+        pass  # pie/donut charts have no value axis
+
+
+def _add_native_chart(slide, df, spec):
+    """Add a native python-pptx chart to the slide.
+
+    Routes to the correct chart type based on spec.visual_type.
+    Handles bar, column, line, area, pie, donut, and scatter natively.
+
+    Returns:
+        True if chart was added successfully, False otherwise
+    """
+    chart_type_enum = NATIVE_CHART_MAP.get(spec.visual_type)
+    if chart_type_enum is None:
+        return False
+
+    categories, values = classify_columns(df, spec)
+
+    # --- Scatter/XY charts use XyChartData ---
+    if spec.visual_type == "scatterChart":
+        chart_data, num_series = _build_xy_chart_data(df, spec)
+        if chart_data is None:
+            return False
+        chart_frame = slide.shapes.add_chart(
+            chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+            chart_data
+        )
+        chart = chart_frame.chart
+        # Scatter: X-axis = values[0], Y-axis = values[1]
+        x_label = [values[0]] if values else []
+        y_label = [values[1]] if len(values) >= 2 else []
+        _style_native_chart(chart, spec, num_series,
+                            categories=x_label, values=y_label)
+        # Scatter markers: set size
+        for series in chart.plots[0].series:
+            series.marker.size = 10
+        return True
+
+    # --- Pie/donut: measures-only case (each measure is a slice) ---
+    if spec.visual_type in ("pieChart", "donutChart"):
+        if not categories and len(values) >= 2:
+            chart_data = CategoryChartData()
+            chart_data.categories = values
+            row = df.iloc[0]
+            chart_data.add_series(
+                "Values",
+                [float(row[v]) if pd.notna(row[v]) else 0 for v in values]
+            )
+            chart_frame = slide.shapes.add_chart(
+                chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+                chart_data
+            )
+            chart = chart_frame.chart
+            _style_native_chart(chart, spec, 1)
+            # Color individual pie/donut slices
+            plot = chart.plots[0]
+            for i, point in enumerate(plot.series[0].points):
+                point.format.fill.solid()
+                point.format.fill.fore_color.rgb = PBI_RGB_COLORS[i % len(PBI_RGB_COLORS)]
+            return True
+
+    if not categories or not values:
+        return False
+
+    # Sort bar/column charts by first measure descending (matches PBI default)
+    if spec.visual_type in ("barChart", "clusteredBarChart",
+                            "columnChart", "clusteredColumnChart"):
+        if len(values) == 1 and len(categories) == 1:
+            df = df.sort_values(values[0], ascending=False)
+
+    # --- Standard category charts (bar, column, line, area, pie, donut) ---
+    chart_data, num_series = _build_category_chart_data(df, categories, values)
+    chart_frame = slide.shapes.add_chart(
+        chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+        chart_data
+    )
+    chart = chart_frame.chart
+    _style_native_chart(chart, spec, num_series,
+                        categories=categories, values=values)
+
+    # Pie/donut: color individual slices instead of series
+    if spec.visual_type in ("pieChart", "donutChart"):
+        plot = chart.plots[0]
+        for i, point in enumerate(plot.series[0].points):
+            point.format.fill.solid()
+            point.format.fill.fore_color.rgb = PBI_RGB_COLORS[i % len(PBI_RGB_COLORS)]
+
+    return True
+
+
+def _add_png_to_slide(slide, png_path):
+    """Insert a plotly PNG image onto a slide, centered within the chart area."""
+    slide.shapes.add_picture(
+        str(png_path), CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT
+    )
+
+
+# =============================================================================
 # CORE API
 # =============================================================================
+
+def _build_spec(spec, visual_type, visual_name, grouping_columns,
+                measure_columns, y2_columns, page_name):
+    """Build a VisualSpec from either an existing spec or individual params."""
+    if spec is not None:
+        return spec
+    if not visual_type:
+        raise ValueError("Either spec or visual_type must be provided")
+    return VisualSpec(
+        page_name=page_name or "",
+        visual_name=visual_name or "",
+        visual_type=visual_type,
+        grouping_columns=grouping_columns or [],
+        measure_columns=measure_columns or [],
+        y2_columns=y2_columns or [],
+    )
+
 
 def generate_chart(df, spec=None, visual_type=None, visual_name=None,
                    grouping_columns=None, measure_columns=None,
                    y2_columns=None, page_name=""):
     """Generate a plotly Figure for a PBI visual from tabular data.
 
-    This is the main programmatic API. Accepts either a VisualSpec or
-    individual parameters. Routes to the appropriate renderer based on
-    visual type.
+    This is the programmatic API for plotly/PNG output. Always returns a
+    plotly Figure (or None). For PowerPoint output, use generate_chart_pptx().
 
     Args:
         df: DataFrame with DAX query results
@@ -1047,21 +1451,16 @@ def generate_chart(df, spec=None, visual_type=None, visual_name=None,
     Returns:
         plotly Figure object, or None if visual type should be skipped
     """
-    if spec is None:
-        if not visual_type:
-            raise ValueError("Either spec or visual_type must be provided")
-        spec = VisualSpec(
-            page_name=page_name or "",
-            visual_name=visual_name or "",
-            visual_type=visual_type,
-            grouping_columns=grouping_columns or [],
-            measure_columns=measure_columns or [],
-            y2_columns=y2_columns or [],
-        )
+    spec = _build_spec(spec, visual_type, visual_name, grouping_columns,
+                       measure_columns, y2_columns, page_name)
 
     if spec.visual_type in SKIP_TYPES:
         print(f"  Skipping: {spec.visual_name} ({spec.visual_type}) "
               f"-- not meaningful as static chart")
+        return None
+
+    if df is None or df.empty:
+        print(f"  Skipping: {spec.visual_name} -- no data")
         return None
 
     renderer = CHART_TYPE_ROUTER.get(spec.visual_type)
@@ -1069,15 +1468,81 @@ def generate_chart(df, spec=None, visual_type=None, visual_name=None,
         print(f"  WARNING: Unknown visual type '{spec.visual_type}' for "
               f"'{spec.visual_name}' -- rendering as table fallback")
         renderer = _render_table
+    try:
+        fig = renderer(df, spec)
+        print(f"  Generated: {spec.visual_name} ({spec.visual_type})")
+        return fig
+    except Exception as e:
+        print(f"  ERROR generating chart for '{spec.visual_name}': {e}")
+        return None
+
+
+def generate_chart_pptx(df, spec=None, visual_type=None, visual_name=None,
+                        grouping_columns=None, measure_columns=None,
+                        y2_columns=None, page_name=""):
+    """Generate a single-slide PowerPoint for a PBI visual from tabular data.
+
+    Uses a native python-pptx chart when the visual type is supported (bar,
+    column, line, area, pie, donut, scatter). Falls back to rendering a plotly
+    PNG and embedding it as a picture on the slide for all other types.
+
+    Args:
+        df: DataFrame with DAX query results
+        spec: VisualSpec (optional, takes precedence over individual params)
+        visual_type: PBI visual type identifier (e.g., "barChart")
+        visual_name: Chart title
+        grouping_columns: list of category column names
+        measure_columns: list of value/measure column names
+        y2_columns: list of secondary-axis measure column names
+        page_name: PBI page name (informational)
+
+    Returns:
+        pptx.presentation.Presentation (one slide), or None if skipped
+    """
+    spec = _build_spec(spec, visual_type, visual_name, grouping_columns,
+                       measure_columns, y2_columns, page_name)
+
+    if spec.visual_type in SKIP_TYPES:
+        print(f"  Skipping: {spec.visual_name} ({spec.visual_type}) "
+              f"-- not meaningful as static chart")
+        return None
 
     if df is None or df.empty:
         print(f"  Skipping: {spec.visual_name} -- no data")
         return None
 
     try:
+        prs = _create_presentation()
+        blank_layout = prs.slide_layouts[6]  # blank slide layout
+        slide = prs.slides.add_slide(blank_layout)
+
+        # Try native chart first for supported types
+        if spec.visual_type in NATIVE_CHART_MAP:
+            success = _add_native_chart(slide, df, spec)
+            if success:
+                print(f"  Generated (native PPTX): {spec.visual_name} ({spec.visual_type})")
+                return prs
+            print(f"  Native chart failed for '{spec.visual_name}', using PNG fallback")
+
+        # PNG fallback: render with plotly, insert image on slide
+        renderer = CHART_TYPE_ROUTER.get(spec.visual_type)
+        if renderer is None:
+            print(f"  WARNING: Unknown visual type '{spec.visual_type}' for "
+                  f"'{spec.visual_name}' -- rendering as table fallback")
+            renderer = _render_table
+
         fig = renderer(df, spec)
-        print(f"  Generated: {spec.visual_name} ({spec.visual_type})")
-        return fig
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp_path = tmp.name
+        try:
+            fig.write_image(tmp_path, format="png", width=1100, height=500, scale=2)
+            _add_png_to_slide(slide, tmp_path)
+        finally:
+            os.unlink(tmp_path)
+
+        print(f"  Generated (PNG fallback on PPTX): {spec.visual_name} ({spec.visual_type})")
+        return prs
+
     except Exception as e:
         print(f"  ERROR generating chart for '{spec.visual_name}': {e}")
         return None
@@ -1103,6 +1568,19 @@ def save_chart(fig, output_path, width=1100, height=500, scale=2):
         height=height,
         scale=scale,
     )
+    print(f"  Saved: {output_path}")
+
+
+def save_chart_pptx(prs, output_path):
+    """Save a Presentation as a .pptx file.
+
+    Args:
+        prs: pptx.presentation.Presentation object
+        output_path: file path for the .pptx (directory is created if needed)
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    prs.save(str(output_path))
     print(f"  Saved: {output_path}")
 
 
@@ -1136,14 +1614,21 @@ def main():
                              "(role = measure, grouping, or y2)")
 
     # Output options
+    parser.add_argument("--format", choices=["pptx", "png"], default="pptx",
+                        dest="output_format",
+                        help="Output format: 'pptx' (default) for single-slide PowerPoint "
+                             "with native chart or PNG fallback, 'png' for legacy plotly image")
+    parser.add_argument("--report-name",
+                        help="Report name for subfolder organization (e.g., 'Revenue Opportunities' "
+                             "creates output/charts/Revenue_Opportunities/)")
     parser.add_argument("--output", default="output/charts/",
-                        help="Output directory for chart images (default: output/charts/)")
+                        help="Output directory for chart files (default: output/charts/)")
     parser.add_argument("--width", type=int, default=1100,
-                        help="Image width in pixels (default: 1100)")
+                        help="Image width in pixels for PNG mode (default: 1100)")
     parser.add_argument("--height", type=int, default=500,
-                        help="Image height in pixels (default: 500)")
+                        help="Image height in pixels for PNG mode (default: 500)")
     parser.add_argument("--scale", type=int, default=2,
-                        help="Resolution scale factor (default: 2 for 144 DPI)")
+                        help="Resolution scale factor for PNG mode (default: 2 for 144 DPI)")
 
     args = parser.parse_args()
 
@@ -1209,19 +1694,30 @@ def main():
     if spec.y2_columns:
         print(f"  Y2 columns (secondary axis): {spec.y2_columns}")
 
-    # Generate chart
-    fig = generate_chart(df, spec=spec)
-    if fig is None:
-        print("No chart generated.")
-        sys.exit(0)
-
-    # Save chart image
     # Sanitize visual name for filename: replace non-alphanumeric chars with underscore
     safe_name = re.sub(r'[^\w\-]', '_', spec.visual_name).strip('_')
     output_dir = Path(args.output)
-    output_path = output_dir / f"{safe_name}.png"
+    # Create report subfolder if --report-name provided
+    if args.report_name:
+        safe_report = re.sub(r'[^\w\-]', '_', args.report_name).strip('_')
+        output_dir = output_dir / safe_report
 
-    save_chart(fig, output_path, width=args.width, height=args.height, scale=args.scale)
+    # Generate and save chart
+    if args.output_format == "pptx":
+        prs = generate_chart_pptx(df, spec=spec)
+        if prs is None:
+            print("No chart generated.")
+            sys.exit(0)
+        output_path = output_dir / f"{safe_name}.pptx"
+        save_chart_pptx(prs, output_path)
+    else:
+        fig = generate_chart(df, spec=spec)
+        if fig is None:
+            print("No chart generated.")
+            sys.exit(0)
+        output_path = output_dir / f"{safe_name}.png"
+        save_chart(fig, output_path, width=args.width, height=args.height, scale=args.scale)
+
     print(f"\nDone! Chart saved to: {output_path}")
 
 

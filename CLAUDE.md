@@ -44,11 +44,11 @@ This is the **data retrieval layer** for Lara's AI-Powered Slide Generation proj
                             [Shared] tmdl_parser.py (semantic model matching)      |
                             [Shared] bookmark_parser.py (bookmark filter parsing)--+
 
-  DAX queries --> Execute against Fabric --> tabular CSV data --+--> [Skill 5] chart_generator.py --> PNG chart images
-                                                                |
+  DAX queries --> Execute against Fabric --> tabular CSV data --+--> [Skill 5] chart_generator.py --> .pptx (native chart or PNG fallback)
+                                                                |                                    or .png (legacy mode)
   Metadata Excel (visual type + field roles) -------------------+
 
-  Chart images -------> Lara's Agent --> AI insights --> PowerPoint slides
+  .pptx chart slides --> Lara's Agent --> AI insights --> PowerPoint slides
   Bookmark DAX queries--^  (filtered per-bookmark view)
 ```
 
@@ -69,7 +69,8 @@ AI-generated DAX queries (Method 2) are a future possibility for complex edge ca
 - pandas, openpyxl (Excel I/O)
 - regex (TMDL file parsing, DAX formula analysis)
 - urllib.request, base64 (stdlib -- Claude Vision API for Skill 4)
-- plotly, kaleido (chart rendering + static image export for Skill 5)
+- plotly, kaleido (chart rendering + static image export for Skill 5 PNG mode/fallback)
+- python-pptx (native PowerPoint chart generation for Skill 5 PPTX mode)
 - Power BI Desktop PBIP format (JSON + TMDL files)
 
 ## Project Structure
@@ -249,15 +250,22 @@ python skills/analyze_screenshot.py \
 ```
 
 ### Skill 5: chart_generator.py
-Generates PBI-style chart images (PNG) from DAX query tabular data. Uses plotly for all chart types with a PBI-themed visual style. Supports 16 chart renderers covering all common PBI visual types.
+Generates PBI-style chart visuals from DAX query tabular data. Supports two output formats: **PPTX** (default, single-slide PowerPoint with native editable chart or PNG fallback) and **PNG** (legacy plotly image). Uses python-pptx for native charts and plotly for PNG rendering. Supports 16 chart renderers covering all common PBI visual types.
 
 - **Input (two modes):**
   - **Mode 1 (CSV + Metadata):** `--csv` data file + `--metadata` Excel from Skill 1 + `--visual` name to match
   - **Mode 2 (CSV + Screenshot):** `--csv` data file + `--visual-type` + `--field` args (agent passes visual info from screenshot)
-  - `--output` — Output directory for chart images (default: `output/charts/`)
-  - `--width` / `--height` / `--scale` — Image dimensions and resolution (default: 1100x500, scale=2 for 144 DPI)
-- **Output:** PNG chart image saved to output directory
-- **Chart type routing:** `CHART_TYPE_ROUTER` dict maps PBI visual type identifiers to renderer functions:
+  - `--format` — Output format: `pptx` (default) or `png` (legacy)
+  - `--output` — Output directory for chart files (default: `output/charts/`)
+  - `--width` / `--height` / `--scale` — Image dimensions for PNG mode (default: 1100x500, scale=2 for 144 DPI)
+- **Output:**
+  - **PPTX mode (default):** Single-slide `.pptx` file per visual. Contains either a native editable chart or an embedded plotly PNG image.
+  - **PNG mode (legacy):** plotly-rendered static PNG image.
+- **Dual rendering engine (PPTX mode):**
+  - **Native python-pptx charts** (editable in PowerPoint): `barChart`, `clusteredBarChart`, `stackedBarChart`, `hundredPercentStackedBarChart`, `columnChart`, `clusteredColumnChart`, `stackedColumnChart`, `hundredPercentStackedColumnChart`, `lineChart`, `areaChart`, `stackedAreaChart`, `pieChart`, `donutChart`, `scatterChart`
+  - **PNG fallback on slide** (plotly image inserted as picture): `lineClusteredColumnComboChart`, `lineStackedColumnComboChart`, `waterfallChart`, `funnelChart`, `treemap`, `gauge`, `card`, `multiRowCard`, `kpi`, `tableEx`, `pivotTable`, `ribbonChart`
+  - **Skip:** slicers, maps, AI visuals (not meaningful as static charts)
+- **Plotly chart type routing (PNG mode / fallback):** `CHART_TYPE_ROUTER` dict maps PBI visual type identifiers to plotly renderer functions:
   - **Bar/Column:** `barChart`, `clusteredBarChart`, `columnChart`, `clusteredColumnChart` → `go.Bar` (horizontal or vertical)
   - **Stacked:** `stackedBarChart`, `stackedColumnChart`, `hundredPercentStacked*` → `go.Bar` with `barmode="stack"`
   - **Line/Area:** `lineChart`, `areaChart`, `stackedAreaChart` → `go.Scatter` with lines/fill
@@ -267,27 +275,33 @@ Generates PBI-style chart images (PNG) from DAX query tabular data. Uses plotly 
   - **Funnel/Treemap:** `funnelChart`, `treemap` → `go.Funnel`, `go.Treemap`
   - **Gauge/Card/KPI:** `gauge`, `card`, `multiRowCard`, `kpi` → `go.Indicator`
   - **Table:** `tableEx`, `pivotTable` → `go.Table` (also fallback for unknown types)
-  - **Skip:** slicers, maps, AI visuals (not meaningful as static charts)
 - **Key data classes:**
   - `VisualSpec` — page_name, visual_name, visual_type, grouping_columns, measure_columns, y2_columns, dax_pattern
 - **Key functions:**
-  - `generate_chart(df, spec)` — main router; looks up visual type in `CHART_TYPE_ROUTER`, calls the matching renderer, returns a plotly Figure
+  - `generate_chart(df, spec)` — plotly API; always returns a plotly Figure (or None). Use for PNG output.
+  - `generate_chart_pptx(df, spec)` — PPTX API; always returns a `pptx.presentation.Presentation` (or None). Uses native chart when possible, PNG fallback on slide otherwise.
   - `save_chart(fig, output_path, width, height, scale)` — exports plotly Figure to PNG via kaleido
+  - `save_chart_pptx(prs, output_path)` — saves Presentation as .pptx
+  - `_add_native_chart(slide, df, spec)` — routes to correct native python-pptx chart type, returns True/False
+  - `_build_category_chart_data(df, categories, values)` — builds CategoryChartData for bar/column/line/area/pie
+  - `_build_xy_chart_data(df, spec)` — builds XyChartData for scatter charts
+  - `_style_native_chart(chart, spec, num_series)` — applies PBI colors, fonts, legend to native charts
+  - `_add_png_to_slide(slide, png_path)` — inserts plotly PNG as picture shape (for fallback types)
   - `classify_columns(df, spec)` — matches VisualSpec field names to DataFrame columns (case-insensitive), falls back to dtype inference
-  - `_prepare_series_data(df, categories, values)` — shared pivot helper for bar/column/stacked renderers; pivots 2nd grouping column into legend series
+  - `_prepare_series_data(df, categories, values)` — shared pivot helper for plotly bar/column/stacked renderers
   - `parse_visual_from_metadata(metadata_excel, visual_name)` — reads Skill 1 output, builds VisualSpec using `classify_field()` from dax_query_builder
-- **PBI styling:** All charts use PBI's default color palette (`#118DFF`, `#12239E`, `#E66C37`, ...), Segoe UI font, white background, light gray gridlines
-- **Dependencies:** plotly, kaleido, pandas, openpyxl
+- **PBI styling:** All charts use PBI's default color palette (`#118DFF`, `#12239E`, `#E66C37`, ...), Segoe UI font, white background, light gray gridlines. Native PPTX charts use 16:9 widescreen slides (13.333" x 7.5").
+- **Dependencies:** plotly, kaleido, pandas, openpyxl, python-pptx
 
 ```bash
-# Mode 1: CSV + Metadata Excel
+# Mode 1: CSV + Metadata Excel (default: PPTX output with native chart)
 python skills/chart_generator.py \
   --csv "output/revenue_data.csv" \
   --metadata "output/pbi_report_metadata.xlsx" \
   --visual "Pipeline by Stage" \
   --output "output/charts/"
 
-# Mode 2: CSV + Screenshot (agent-driven)
+# Mode 2: CSV + Screenshot (agent-driven, PPTX output)
 python skills/chart_generator.py \
   --csv "output/revenue_data.csv" \
   --visual-type barChart \
@@ -296,7 +310,7 @@ python skills/chart_generator.py \
   --field "Opportunity Count:measure" \
   --output "output/charts/"
 
-# Combo chart with secondary axis
+# Combo chart with secondary axis (auto PNG fallback on slide)
 python skills/chart_generator.py \
   --csv "output/combo_data.csv" \
   --visual-type lineClusteredColumnComboChart \
@@ -304,6 +318,16 @@ python skills/chart_generator.py \
   --field "Month:grouping" \
   --field "Revenue:measure" \
   --field "Growth Rate:y2" \
+  --output "output/charts/"
+
+# Legacy PNG mode (backward compatible)
+python skills/chart_generator.py \
+  --csv "output/revenue_data.csv" \
+  --visual-type columnChart \
+  --visual-name "Revenue by Region" \
+  --field "Region:grouping" \
+  --field "Revenue:measure" \
+  --format png \
   --output "output/charts/"
 ```
 
@@ -426,7 +450,7 @@ The pipeline has been manually cross-checked against three reports:
 - **Skill 3 (CSV reader):** Field classification relies on value heuristics (currency/percentage/numeric patterns). Ambiguous columns (e.g., IDs that look numeric) may be misclassified. Use `--model-root` for accurate matching.
 - **Skill 4 (screenshots):** The agent identifies fields visually — accuracy depends on image clarity and whether field names are visible in the chart (axis labels, headers, legend). Always verify detected fields.
 - **Skill 3/4 without model:** Unmatched fields use placeholder `'<Table>'[FieldName]` which must be manually corrected before DAX queries can execute.
-- **Skill 5 (chart generator):** Charts are PBI-styled approximations, not pixel-perfect replicas. Combo chart bar/line split defaults to "last measure = line" when no Visual Y2 metadata is available. Map visuals, slicers, and AI visuals are skipped (not meaningful as static images). Ribbon charts are rendered as stacked area (closest plotly equivalent).
+- **Skill 5 (chart generator):** Charts are PBI-styled approximations, not pixel-perfect replicas. PPTX mode produces native editable charts for bar, column, line, area, pie, donut, and scatter types; all other types fall back to a plotly PNG image embedded on the slide. Combo charts, waterfall, funnel, treemap, gauge, card, KPI, and tables use PNG fallback because python-pptx lacks native support for these chart types. Combo chart bar/line split defaults to "last measure = line" when no Visual Y2 metadata is available. Map visuals, slicers, and AI visuals are skipped (not meaningful as static images). Ribbon charts are rendered as stacked area (closest plotly equivalent).
 
 ## Chat Presentation Rules
 - **Always detect and apply ALL filters** — report-level, page-level, and visual-level — when presenting a DAX query in chat. Check the Filter Expressions sheet for any filter that applies to the visual (by scope: report filters apply to all visuals, page filters apply to all visuals on that page, visual filters apply to that specific visual).
