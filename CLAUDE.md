@@ -22,7 +22,7 @@ I reverse-engineer Power BI visuals into executable DAX queries. Give me a PBIP 
 6. **Then you choose:** pick another visual, switch pages, or load a different report — I keep everything in memory so you don't have to re-parse
 
 **To get started, give me one of these:**
-- **A `.pbix` file** — I'll extract everything automatically (install `pbixray` for full measure support)
+- **A `.pbix` file** — I'll extract everything automatically
 - **Two PBIP paths** — the `definition/` folder inside your `.Report/` directory + the `definition/` folder inside your `.SemanticModel/` directory
 
 **Sample reports already available in `data/`:**
