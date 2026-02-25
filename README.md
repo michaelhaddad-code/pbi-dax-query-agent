@@ -157,7 +157,5 @@ The pipeline has been manually cross-checked against three reports:
 ## Known Limitations
 
 - `.pbix` semantic model extraction requires `pbixray` (which needs a C compiler) — without it, report structure is fully extracted but measure formulas are missing
-- No access to actual data values — custom filter values cannot be verified for exact spelling/casing
 - Relative date offsets (e.g., "last 6 months") cannot be resolved statically
 - Charts are PBI-styled approximations, not pixel-perfect replicas
-- Implicit measures (auto-generated Sum/Count) are not tracked in TMDL files
