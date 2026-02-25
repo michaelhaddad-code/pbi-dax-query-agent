@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[STARTUP] Display the welcome message from CLAUDE.md immediately. Do not wait for user input.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
