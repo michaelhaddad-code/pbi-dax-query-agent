@@ -1,6 +1,6 @@
 # PBI DAX Query Generation Agent
 
-An AI-powered agent that reverse-engineers Power BI visuals into executable DAX queries and generates PBI-styled PowerPoint chart slides from the results. Built as the data retrieval layer for Lara's AI-Powered Slide Generation project at XP3R.
+An agent that reverse-engineers Power BI visuals into executable DAX queries and generates PBI-styled PowerPoint chart slides from the results. Built as the data retrieval layer for Lara's AI-Powered Slide Generation project at XP3R.
 
 ## What It Does
 
