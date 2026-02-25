@@ -80,10 +80,14 @@ def parse_literal(value_str: str) -> str:
         inner = inner.replace('"', '""')
         return f'"{inner}"'
 
-    # Integer with L suffix (relative date offset): -6L → -6
+    # Integer with L suffix (PBI long integer): 2025L → 2025, 0L → 0
+    # Negative values in date filter context (e.g., -6L) are relative offsets
+    # that can't be resolved statically — flag those only
     if re.match(r"^-?\d+L$", s):
         num = s[:-1]
-        return f"{num} /* relative offset — cannot resolve statically */"
+        if num.startswith("-"):
+            return f"{num} /* relative offset — cannot resolve statically */"
+        return num
 
     # Decimal with D suffix: 0D → 0
     if re.match(r"^-?\d+(\.\d+)?D$", s):

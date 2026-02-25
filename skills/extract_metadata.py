@@ -731,10 +731,11 @@ def extract_metadata(report_root: str, model_root: str,
         "Column in the Semantic Model",
     ])
 
+    pseudo_visuals = {'Page Filters', 'Report Filters'}
+    data_df = df[~df['Visual/Table Name in PBI'].isin(pseudo_visuals)]
     print(f"\n{'=' * 60}")
     print(f"Total rows extracted: {len(df)}")
-    print(f"Pages: {df['Page Name'].nunique()}")
-    data_df = df[df['Visual/Table Name in PBI'] != 'Page Filters']
+    print(f"Pages: {data_df['Page Name'].nunique()}")
     if 'Visual ID' in data_df.columns:
         print(f"Visuals: {data_df.groupby(['Page Name', 'Visual ID']).ngroups}")
     else:
