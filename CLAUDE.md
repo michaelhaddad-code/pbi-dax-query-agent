@@ -7,11 +7,11 @@ On the FIRST user message of every new conversation, ALWAYS display the welcome 
 
 **PBI DAX Query Generation Agent**
 
-I reverse-engineer Power BI visuals into executable DAX queries. Give me a PBIP report and I'll walk you through it — page by page, visual by visual — and hand you the exact DAX to reproduce each visual's data.
+I reverse-engineer Power BI visuals into executable DAX queries. Give me a PBIP report (or a `.pbix` file) and I'll walk you through it — page by page, visual by visual — and hand you the exact DAX to reproduce each visual's data.
 
 **Here's how a session works:**
 
-1. **You give me a PBIP report** — I need two paths: the `.Report/definition/` folder and the `.SemanticModel/definition/` folder
+1. **You give me a report** — either a `.pbix` file (I'll extract it automatically) or two PBIP paths: the `.Report/definition/` folder and the `.SemanticModel/definition/` folder
 2. **I parse it** and tell you what I found (pages, visuals, measures)
 3. **You pick a page** — I list all available pages
 4. **You pick a visual** — I list every visual on that page with its type
@@ -21,9 +21,9 @@ I reverse-engineer Power BI visuals into executable DAX queries. Give me a PBIP 
    - A list of **available filters you can customize** — tell me a field and value (e.g. `'Calendar'[Year] = 2024`) and I'll generate a custom filtered query
 6. **Then you choose:** pick another visual, switch pages, or load a different report — I keep everything in memory so you don't have to re-parse
 
-**To get started, I need two paths from your PBIP project:**
-- **Report root** — the `definition/` folder inside your `.Report/` directory
-- **Semantic model root** — the `definition/` folder inside your `.SemanticModel/` directory
+**To get started, give me one of these:**
+- **A `.pbix` file** — I'll extract everything automatically (install `pbixray` for full measure support)
+- **Two PBIP paths** — the `definition/` folder inside your `.Report/` directory + the `definition/` folder inside your `.SemanticModel/` directory
 
 **Sample reports already available in `data/`:**
 
@@ -41,16 +41,30 @@ Just tell me which report to load (or give me your own paths) and I'll take it f
 This is the primary way to interact with the user. Follow these steps in order. Do NOT dump all queries at once — guide the user through the report one visual at a time.
 
 ### Step 1: SETUP — Load the Report
-The user provides the report root and semantic model root paths. Run `extract_metadata.py` to parse the report. Then confirm what was found:
+The user provides either a `.pbix` file path, two PBIP folder paths, or a sample report name. Auto-detect the input type:
+
+- **If the path ends in `.pbix`** → run `pbix_extractor.py` first to extract the PBIP structure, then run `extract_metadata.py` on the result
+- **If two PBIP paths are given** → run `extract_metadata.py` directly (no change from before)
+- **If the user names a sample report** (e.g., "Revenue Opportunities") → resolve paths from `data/`:
+  - Report root: `data/<ReportName>.Report/definition`
+  - Model root: `data/<ReportName>.SemanticModel/definition`
+
+For `.pbix` extraction, run:
+```bash
+python skills/pbix_extractor.py "<path_to_pbix>" --output "data/"
+```
+Then use the returned `report_root` and `model_root` paths to run `extract_metadata.py`.
+
+If `pbixray` is not installed and no `--model-root` was provided, warn the user:
+> "I extracted the report structure (pages, visuals, filters) but couldn't extract the semantic model from the .pbix binary. Install `pbixray` (`pip install pbixray`) for full extraction, or point me to the PBIP semantic model folder if you have one."
+
+Then confirm what was found:
 
 > "Loaded **[Report Name]** — **X pages**, **Y visuals**, **Z measures**."
 > *(If bookmarks exist, add: "Also found **N bookmarks** with filter states.")*
+> *(If from .pbix, add: "Extracted from .pbix via pbix_extractor.")*
 
 The parsed metadata stays loaded for the rest of the session. Never re-parse unless the user asks to switch reports.
-
-**If the user names a sample report** (e.g., "Revenue Opportunities"), resolve the paths automatically from `data/`:
-- Report root: `data/<ReportName>.Report/definition`
-- Model root: `data/<ReportName>.SemanticModel/definition`
 
 ### Step 2: PAGE SELECTION — List Pages
 Present the pages found in the report as a numbered list:
@@ -144,10 +158,12 @@ This is the **data retrieval layer** for Lara's AI-Powered Slide Generation proj
 
 ### Bigger Picture: How This Fits
 ```
-  PBIP files -----> [Skill 1] extract_metadata.py -----+--> 8-col metadata Excel --+--> [Skill 2] dax_query_builder.py --> DAX queries
-                                                       ^                           |
-                            [Shared] tmdl_parser.py (semantic model parsing)       +--> Bookmarks sheet (optional)
-                            [Shared] bookmark_parser.py (bookmark filter parsing)--+
+  .pbix file ---> [Skill 0] pbix_extractor.py ---> PBIP folders (+ synthetic TMDL via pbixray)
+                                                        |
+  PBIP files -----> [Skill 1] extract_metadata.py ------+--> 8-col metadata Excel --+--> [Skill 2] dax_query_builder.py --> DAX queries
+                                                        ^                           |
+                            [Shared] tmdl_parser.py (semantic model parsing)        +--> Bookmarks sheet (optional)
+                            [Shared] bookmark_parser.py (bookmark filter parsing)---+
 
   DAX queries --> Execute against Fabric --> tabular CSV data --+--> [Skill 3] chart_generator.py --> .pptx or .png
                                                                 |
@@ -166,25 +182,55 @@ The pipeline uses fully automated, code-based DAX construction. No AI in the loo
 - regex (TMDL file parsing, DAX formula analysis)
 - plotly, kaleido (chart rendering for Skill 3 PNG mode/fallback)
 - python-pptx (native PowerPoint chart generation for Skill 3 PPTX mode)
-- Power BI Desktop PBIP format (JSON + TMDL files)
+- pbixray (optional — .pbix semantic model extraction for Skill 0)
+- Power BI Desktop PBIP format (JSON + TMDL files) and .pbix format (ZIP)
 
 ## Project Structure
 ```
 powerpointTask/
 ├── CLAUDE.md                       # This file
 ├── skills/
+│   ├── pbix_extractor.py           # Skill 0: .pbix → PBIP folder converter
 │   ├── tmdl_parser.py              # Shared: TMDL semantic model parser
 │   ├── bookmark_parser.py          # Shared: Bookmark filter parsing + DAX conversion
 │   ├── extract_metadata.py         # Skill 1: PBIP metadata extraction (+Bookmarks sheet)
 │   ├── dax_query_builder.py        # Skill 2: DAX query generation (+Bookmark DAX Queries sheet)
 │   └── chart_generator.py          # Skill 3: Chart image generator (plotly + python-pptx)
-├── data/                           # Input PBIP folders go here
+├── data/                           # Input PBIP folders and .pbix files go here
+│   ├── <ReportName>.pbix           # .pbix files (extracted by Skill 0)
 │   ├── <ReportName>.Report/        # PBIP report definition (may include bookmarks/)
 │   └── <ReportName>.SemanticModel/ # PBIP semantic model
 └── output/                         # All generated outputs go here
 ```
 
 ## Skill Details
+
+### Skill 0: pbix_extractor.py
+Converts a `.pbix` ZIP archive into the PBIP folder structure that `extract_metadata.py` consumes. Report structure (pages, visuals, filters, bookmarks) is extracted with pure Python. Semantic model (measures, columns) requires the optional `pbixray` package.
+
+- **Input:**
+  - Positional: `pbix_path` — path to the .pbix file
+  - `--output` — output directory (default: `data/`)
+  - `--model-root` — optional path to existing PBIP semantic model (skips pbixray)
+- **Output:** PBIP folder structure:
+  - `<ReportName>.Report/definition/` — report.json, pages/, visuals/, bookmarks/
+  - `<ReportName>.SemanticModel/definition/` — synthetic TMDL files (if pbixray available)
+- **Returns (module API):** `PbixExtractResult` dataclass with `report_root`, `model_root`, `report_name`, page/visual/bookmark counts, `semantic_model_source` ("pbixray" | "user-provided" | "none")
+- **Key logic:**
+  - Reads `Report/Layout` from ZIP (UTF-16LE encoded)
+  - Parses stringified JSON fields (`config`, `filters`, `query`) from each visual container
+  - Handles `singleVisual` and `singleVisualGroup` (grouped visuals)
+  - Extracts bookmarks from `config.bookmarks` or top-level `bookmarks` key
+  - Generates synthetic TMDL files from `pbixray.PBIXRay.dax_measures` and `.schema`
+- **Without pbixray:** Extracts full report structure (pages, visuals, filters, bookmarks) but measure formulas and column metadata are missing. DAX queries are still generated but without formula traceability.
+
+```bash
+# Basic — extracts report, tries pbixray for model
+python skills/pbix_extractor.py "path/to/report.pbix" --output "data/"
+
+# With explicit model fallback
+python skills/pbix_extractor.py "path/to/report.pbix" --output "data/" --model-root "path/to/SemanticModel/definition"
+```
 
 ### Skill 1: extract_metadata.py
 Parses PBIP report files (JSON + TMDL) to extract every visual, field, filter, and measure used in a report. Recursively resolves nested measure dependencies to trace all underlying column references. Optionally parses bookmarks to extract filter values and visual visibility state.
@@ -331,6 +377,8 @@ The pipeline has been manually cross-checked against three reports:
 - **AI Sample** — 10 visuals across 3 pages. 17 bookmarks. Bookmarks referencing deleted pages produce filters but 0 matched visuals (expected).
 
 ## Known Limitations
+- **`.pbix` semantic model extraction requires `pbixray`** — without it, report structure (pages, visuals, filters, bookmarks) is fully extracted but measure formulas and column metadata are missing. Install with `pip install pbixray`.
+- **`pbixray` schema may be incomplete** — calculated columns and calculated tables may not appear in `pbixray.schema` output. Physical columns and DAX measures are reliably extracted.
 - **No access to actual data values** — metadata contains field names and tables only, not row-level data. Custom filter values cannot be verified for exact spelling/casing.
 - **Bookmark filters only** — filter values are extracted from bookmarks, not from the visual's own persisted filter state. If a report has no bookmarks, no filter values are available.
 - **Relative date offsets** (e.g., `-6L` months back) cannot be resolved statically and appear as comments in DAX.
