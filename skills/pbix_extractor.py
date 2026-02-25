@@ -1054,8 +1054,14 @@ def extract_pbix(
                 visual_dir.mkdir(exist_ok=True)
                 _write_json(visual_dir / "visual.json", visual_json)
                 total_containers += 1
-                # Count data visuals (those with queryState)
-                if visual_json.get("visual", {}).get("query", {}).get("queryState"):
+                # Count data visuals (queryState + not a decorative type)
+                visual_block = visual_json.get("visual", {})
+                vtype = visual_block.get("visualType", "")
+                has_query = bool(visual_block.get("query", {}).get("queryState"))
+                is_decorative = vtype in (
+                    "textbox", "image", "shape", "actionButton", "group",
+                )
+                if has_query and not is_decorative:
                     data_visuals += 1
 
     logger.info(
