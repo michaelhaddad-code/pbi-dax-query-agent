@@ -1,7 +1,7 @@
 # PBI DAX Query Generation Agent
 
-## Welcome Message — Display on Every Launch
-When a new conversation starts, immediately greet the user with the following message (before they ask anything):
+## Welcome Message — MANDATORY First Response
+On the FIRST user message of every new conversation, ALWAYS display the welcome message below BEFORE doing anything else. This applies regardless of what the user says — even if they ask a question or give a command, show the welcome message first, then address their request after.
 
 ---
 
