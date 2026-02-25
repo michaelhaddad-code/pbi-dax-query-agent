@@ -4,14 +4,11 @@ Shared TMDL Parser Module
 PBI AutoGov — Power BI Data Governance Automation Pipeline
 
 Extracts measures AND columns from TMDL semantic model files into a structured
-SemanticModel dataclass. Provides field-name-to-table matching for Skills 3/4
-(CSV export and screenshot analysis) that need to resolve bare field names
-back to their semantic model table.
+SemanticModel dataclass with case-insensitive lookup indexes.
 
 Used by:
   - Skill 1 (extract_metadata.py) via parse_tmdl_files() legacy wrapper
-  - Skill 3 (read_excel_export.py) via parse_semantic_model() + match_field_to_model()
-  - Skill 4 (analyze_screenshot.py) via parse_semantic_model() + match_field_to_model()
+  - Skill 2 (dax_query_builder.py) via parse_semantic_model() for formula lookup
 """
 
 import re

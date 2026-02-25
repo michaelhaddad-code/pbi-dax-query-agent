@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Skill 5: chart_generator.py
+Skill 3: chart_generator.py
 PBI AutoGov -- Chart Generator
 
 Generates chart visuals from DAX query tabular data that visually resemble
@@ -8,28 +8,14 @@ the original Power BI visuals. Supports two output formats:
   - PPTX (default): single-slide .pptx with native editable chart or PNG fallback
   - PNG (legacy): plotly-rendered static image
 
-Two input modes:
-  Mode 1 (CSV + Metadata): reads metadata Excel to get visual type + field roles
-  Mode 2 (CSV + Screenshot): agent passes visual type + fields as CLI args
-
-Input:  CSV file with DAX query results + visual metadata (Excel or CLI args)
+Input:  CSV file with DAX query results + metadata Excel from Skill 1
 Output: .pptx file (one slide per visual) or .png image
 
 Usage:
-    # Mode 1: CSV + Metadata Excel
     python skills/chart_generator.py \
       --csv "output/revenue_data.csv" \
       --metadata "output/pbi_report_metadata.xlsx" \
       --visual "Pipeline by Stage" \
-      --output "output/charts/"
-
-    # Mode 2: CSV + Screenshot (agent-driven)
-    python skills/chart_generator.py \
-      --csv "output/revenue_data.csv" \
-      --visual-type barChart \
-      --visual-name "Pipeline by Stage" \
-      --field "Sales Stage:grouping" \
-      --field "Opportunity Count:measure" \
       --output "output/charts/"
 """
 
@@ -1648,7 +1634,7 @@ def main():
         if spec is None:
             sys.exit(1)
     elif args.visual_type and args.fields:
-        # Mode 2: Manual/screenshot-driven
+        # Mode 2: Manual CLI-driven (ad-hoc usage)
         print(f"Mode 2: Using CLI-provided visual metadata")
         grouping_cols = []
         measure_cols = []
