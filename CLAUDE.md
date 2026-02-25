@@ -321,6 +321,8 @@ python skills/chart_generator.py \
 7. **Auto-generated visual-level filters that duplicate query state fields must be skipped** — prevents double-counting in metadata.
 8. **Follow the 5-step interactive flow** — never dump all DAX queries at once. Guide the user page by page, visual by visual.
 9. **Always deliver three outputs per visual** — filtered query first, then base query, then custom filter offer.
+10. **Keep DAX code blocks clean** — NEVER embed disclaimers, comments like "adjust as needed", or explanatory notes inside DAX code blocks. Present clean, executable DAX. If a disclaimer is needed (e.g., relative date filters), add it as a brief note below the code block.
+11. **Relative date filters: keep explanations simple** — When a filter uses relative date offsets that can't be resolved statically, give a one-line disclaimer (e.g., "This report uses a relative date filter, so the year values `{2025, 2024}` may differ at runtime."). Do NOT explain PBI internals, offset encoding, or how relative dates work unless the user specifically asks.
 
 ## Validation Status
 The pipeline has been manually cross-checked against three reports:
