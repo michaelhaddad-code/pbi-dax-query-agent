@@ -43,26 +43,35 @@ This is the primary way to interact with the user. Follow these steps in order. 
 ### Step 1: SETUP — Load the Report
 The user provides either a `.pbix` file path, two PBIP folder paths, or a sample report name. Auto-detect the input type:
 
-- **If the path ends in `.pbix`** → run `pbix_extractor.py` first to extract the PBIP structure, then run `extract_metadata.py` on the result
+- **If the path ends in `.pbix`** → run `pbix_extractor.py` first, then **pause and report results before doing anything else**
 - **If two PBIP paths are given** → run `extract_metadata.py` directly (no change from before)
 - **If the user names a sample report** (e.g., "Revenue Opportunities") → resolve paths from `data/`:
   - Report root: `data/<ReportName>.Report/definition`
   - Model root: `data/<ReportName>.SemanticModel/definition`
 
-For `.pbix` extraction, run:
+**For `.pbix` files — follow this exact sequence:**
+
+1. Run `pbix_extractor.py` to extract the PBIP structure:
 ```bash
 python skills/pbix_extractor.py "<path_to_pbix>" --output "data/"
 ```
-Then use the returned `report_root` and `model_root` paths to run `extract_metadata.py`.
+
+2. **Stop and report what was extracted.** Tell the user:
+> "Extracted **[Report Name]** — **X pages**, **Y data visuals**, **Z bookmarks**. Semantic model: [extracted N measures / not available]."
+
+3. **Then run `extract_metadata.py`** on the extracted PBIP structure using the returned `report_root` and `model_root` paths.
+
+4. Report the metadata results and move to Step 2 (page listing).
+
+**Do NOT barrel through all steps silently.** Each step should have visible output so the user knows what's happening.
 
 If `pbixray` is not installed and no `--model-root` was provided, warn the user:
 > "I extracted the report structure (pages, visuals, filters) but couldn't extract the semantic model from the .pbix binary. Install `pbixray` (`pip install pbixray`) for full extraction, or point me to the PBIP semantic model folder if you have one."
 
-Then confirm what was found:
+**For PBIP paths and sample reports**, confirm what was found after running `extract_metadata.py`:
 
 > "Loaded **[Report Name]** — **X pages**, **Y visuals**, **Z measures**."
 > *(If bookmarks exist, add: "Also found **N bookmarks** with filter states.")*
-> *(If from .pbix, add: "Extracted from .pbix via pbix_extractor.")*
 
 The parsed metadata stays loaded for the rest of the session. Never re-parse unless the user asks to switch reports.
 
