@@ -142,19 +142,23 @@ def normalize_filters(filters: list) -> list:
 def _synthesize_field_from_where(filt: dict, alias_map: dict) -> Optional[dict]:
     """Extract a field reference from a filter's Where clause.
 
-    Walks the first Where condition to find a Column or Measure reference,
-    resolves aliases, and returns it in PBIP field format.
+    Walks Where conditions to find the first Column or Measure reference,
+    resolves aliases, and returns it in PBIP field format. Checks all
+    conditions (not just the first) in case the first has no extractable field.
     """
     where_list = filt.get("Where", [])
     if not where_list:
         return None
 
-    condition = where_list[0].get("Condition", {})
-    field_ref = _find_field_in_condition(condition)
-    if field_ref:
-        field_ref = json.loads(json.dumps(field_ref))  # deep copy
-        _resolve_source_refs(field_ref, alias_map)
-    return field_ref
+    for where_entry in where_list:
+        condition = where_entry.get("Condition", {})
+        field_ref = _find_field_in_condition(condition)
+        if field_ref:
+            field_ref = json.loads(json.dumps(field_ref))  # deep copy
+            _resolve_source_refs(field_ref, alias_map)
+            return field_ref
+
+    return None
 
 
 def _find_field_in_condition(condition: dict) -> Optional[dict]:
@@ -178,14 +182,33 @@ def _find_field_in_condition(condition: dict) -> Optional[dict]:
                 if ftype in exprs[0]:
                     return {ftype: exprs[0][ftype]}
 
-    # Not > In
+    # Between: check Left (same shape as Comparison)
+    if "Between" in condition:
+        left = condition["Between"].get("Left", {})
+        for ftype in ("Column", "Measure"):
+            if ftype in left:
+                return {ftype: left[ftype]}
+
+    # Contains / StartsWith / EndsWith: check Left.Column or Left.Measure
+    for op in ("Contains", "StartsWith", "EndsWith"):
+        if op in condition:
+            left = condition[op].get("Left", {})
+            for ftype in ("Column", "Measure"):
+                if ftype in left:
+                    return {ftype: left[ftype]}
+
+    # Not: unwrap and recurse
     if "Not" in condition:
         inner = condition["Not"]
         return _find_field_in_condition(inner)
 
-    # And: check Left
+    # And: check Left branch
     if "And" in condition:
         return _find_field_in_condition(condition["And"].get("Left", {}))
+
+    # Or: check Left branch
+    if "Or" in condition:
+        return _find_field_in_condition(condition["Or"].get("Left", {}))
 
     return None
 
@@ -350,7 +373,11 @@ def build_visual_json(vc: dict) -> dict:
         vc_query = safe_json_loads(vc.get("query", ""))
         if vc_query:
             visual_type = visual_json.get("visual", {}).get("visualType", "")
-            commands_qs = _convert_commands_to_query_state(vc_query, visual_type)
+            sv = config.get("singleVisual", {}) if config else {}
+            col_props = sv.get("columnProperties", {}) if sv else {}
+            commands_qs = _convert_commands_to_query_state(
+                vc_query, visual_type, col_props
+            )
             if commands_qs:
                 visual_json["visual"]["query"] = {"queryState": commands_qs}
 
@@ -379,7 +406,9 @@ def _build_visual_block(sv: dict) -> dict:
     elif "query" in sv:
         # Fallback: try converting Commands format → queryState
         commands_qs = _convert_commands_to_query_state(
-            sv["query"], sv.get("visualType", "")
+            sv["query"],
+            sv.get("visualType", ""),
+            sv.get("columnProperties", {}),
         )
         if commands_qs:
             visual["query"] = {"queryState": commands_qs}
@@ -498,7 +527,10 @@ def _build_query_state(sv: dict) -> Optional[dict]:
 
 
 # Role inference: map visual type + field type → queryState role name
-# Columns are grouping fields, Measures/Aggregations are value fields
+# Columns are grouping fields, Measures/Aggregations are value fields.
+# Types not listed default to Category (grouping) / Y (values), which is
+# correct for standard charts (bar, column, line, pie, area, scatter, combo,
+# waterfall, ribbon, funnel, donut).
 _GROUPING_ROLE = {
     "card": "Values",
     "cardVisual": "Values",
@@ -510,21 +542,29 @@ _GROUPING_ROLE = {
     "pivotTable": "Rows",
     "matrix": "Rows",
     "treemap": "Group",
+    "decompositionTreeVisual": "Category",
+    "qnaVisual": "Category",
 }
 _VALUE_ROLE = {
     "pivotTable": "Values",
     "matrix": "Values",
     "treemap": "Values",
+    "decompositionTreeVisual": "Y",
+    "qnaVisual": "Y",
 }
 
 
 def _convert_commands_to_query_state(
-    query: dict, visual_type: str
+    query: dict,
+    visual_type: str,
+    column_properties: Optional[dict] = None,
 ) -> Optional[dict]:
     """Convert a SemanticQueryDataShapeCommand query into PBIP queryState.
 
     This is the fallback path for visuals that don't have prototypeQuery+projections.
     Role names are inferred from visual type and field type (Column vs Measure).
+    column_properties (from singleVisual.columnProperties) provides display name
+    overrides keyed by queryRef.
     """
     # Navigate to the inner Query object
     commands = query.get("Commands", [])
@@ -546,6 +586,9 @@ def _convert_commands_to_query_state(
     select_entries = inner_query.get("Select", [])
     if not select_entries:
         return None
+
+    if column_properties is None:
+        column_properties = {}
 
     # Determine the role for grouping (Column) vs value (Measure) fields
     grouping_role = _GROUPING_ROLE.get(visual_type, "Category")
@@ -570,7 +613,15 @@ def _convert_commands_to_query_state(
         proj: dict[str, Any] = {"field": field_obj}
         if query_ref:
             proj["queryRef"] = query_ref
-        display_name = sel.get("nativeQueryRef")
+
+        # Display name: prefer columnProperties override, then nativeQueryRef
+        display_name = (
+            column_properties.get(query_ref, {}).get("displayName")
+            if isinstance(column_properties.get(query_ref), dict)
+            else None
+        )
+        if not display_name:
+            display_name = sel.get("nativeQueryRef")
         if display_name:
             proj["displayName"] = display_name
 
