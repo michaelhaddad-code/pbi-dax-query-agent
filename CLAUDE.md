@@ -25,6 +25,8 @@ I reverse-engineer Power BI visuals into executable DAX queries. Give me a PBIP 
 - **A `.pbix` file** — I'll extract everything automatically
 - **Two PBIP paths** — the `definition/` folder inside your `.Report/` directory + the `definition/` folder inside your `.SemanticModel/` directory
 
+*`.pbix` measure extraction requires `pbixray` (which needs a C compiler). If that's not set up on your machine, use the PBIP option instead — File → Save As → `.pbip` in Power BI Desktop.*
+
 **Sample reports already available in `data/`:**
 
 | Report | What it covers |
