@@ -734,7 +734,7 @@ def extract_metadata(report_root: str, model_root: str,
     print(f"\n{'=' * 60}")
     print(f"Total rows extracted: {len(df)}")
     print(f"Pages: {df['Page Name'].nunique()}")
-    print(f"Visuals: {df['Visual/Table Name in PBI'].nunique()}")
+    print(f"Visuals: {df.groupby(['Page Name', 'Visual/Table Name in PBI']).ngroups}")
     print(f"{'=' * 60}")
 
     # [4] Parse bookmarks (if present and enabled)
