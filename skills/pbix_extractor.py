@@ -42,7 +42,8 @@ class PbixExtractResult:
     model_root: Optional[str]
     report_name: str
     page_count: int = 0
-    visual_count: int = 0
+    visual_container_count: int = 0
+    data_visual_count: int = 0  # visuals with queryState (actual data visuals)
     bookmark_count: int = 0
     semantic_model_source: str = "none"  # "pbixray" | "user-provided" | "none"
 
@@ -100,16 +101,93 @@ def sanitize_filename(name: str) -> str:
 def normalize_filters(filters: list) -> list:
     """Normalize .pbix filter objects to match PBIP format.
 
-    Key differences:
-      - .pbix uses `expression` for the field reference → PBIP uses `field`
-      - .pbix may omit `type` → default to "Categorical"
+    Three transformations:
+    1. Rename `expression` → `field` (PBIP key name)
+    2. Resolve SourceRef.Source (alias) → SourceRef.Entity (table name) in the field
+    3. If no `field`/`expression` exists but `filter.Where` does, synthesize `field`
+       from the first Where condition's column reference
+    4. Default `type` to "Categorical" if missing
     """
     for f in filters:
+        # Build alias→entity map from this filter's From array
+        alias_map = {}
+        filt = f.get("filter", {})
+        for entry in filt.get("From", []):
+            alias = entry.get("Name", "")
+            entity = entry.get("Entity", "")
+            if alias and entity:
+                alias_map[alias] = entity
+
+        # Step 1: rename expression → field
         if "expression" in f and "field" not in f:
             f["field"] = f.pop("expression")
+
+        # Step 2: if field exists, resolve aliases in it
+        if "field" in f and alias_map:
+            _resolve_source_refs(f["field"], alias_map)
+
+        # Step 3: if no field at all, synthesize from filter.Where
+        if "field" not in f and filt:
+            synthesized = _synthesize_field_from_where(filt, alias_map)
+            if synthesized:
+                f["field"] = synthesized
+
+        # Step 4: default type
         if "type" not in f:
             f["type"] = "Categorical"
+
     return filters
+
+
+def _synthesize_field_from_where(filt: dict, alias_map: dict) -> Optional[dict]:
+    """Extract a field reference from a filter's Where clause.
+
+    Walks the first Where condition to find a Column or Measure reference,
+    resolves aliases, and returns it in PBIP field format.
+    """
+    where_list = filt.get("Where", [])
+    if not where_list:
+        return None
+
+    condition = where_list[0].get("Condition", {})
+    field_ref = _find_field_in_condition(condition)
+    if field_ref:
+        field_ref = json.loads(json.dumps(field_ref))  # deep copy
+        _resolve_source_refs(field_ref, alias_map)
+    return field_ref
+
+
+def _find_field_in_condition(condition: dict) -> Optional[dict]:
+    """Recursively find the first Column or Measure field in a filter condition."""
+    if not condition:
+        return None
+
+    # Comparison: check Left side
+    if "Comparison" in condition:
+        comp = condition["Comparison"]
+        left = comp.get("Left", {})
+        for ftype in ("Column", "Measure"):
+            if ftype in left:
+                return {ftype: left[ftype]}
+
+    # In: check Expressions[0]
+    if "In" in condition:
+        exprs = condition["In"].get("Expressions", [])
+        if exprs:
+            for ftype in ("Column", "Measure"):
+                if ftype in exprs[0]:
+                    return {ftype: exprs[0][ftype]}
+
+    # Not > In
+    if "Not" in condition:
+        inner = condition["Not"]
+        return _find_field_in_condition(inner)
+
+    # And: check Left
+    if "And" in condition:
+        return _find_field_in_condition(condition["And"].get("Left", {}))
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -266,10 +344,15 @@ def build_visual_json(vc: dict) -> dict:
     if isinstance(filters, list) and filters:
         visual_json["filterConfig"] = {"filters": normalize_filters(filters)}
 
-    # Note: the top-level `query` field on the visual container is in
-    # SemanticQueryDataShapeCommand format (From/Select/Binding) which is NOT
-    # compatible with extract_metadata.py. We intentionally skip it — queryState
-    # was already built from prototypeQuery + projections above.
+    # Fallback: if visual still has no query, try the top-level `query` field
+    # on the visual container (Commands format). Convert it to queryState.
+    if "visual" in visual_json and "query" not in visual_json.get("visual", {}):
+        vc_query = safe_json_loads(vc.get("query", ""))
+        if vc_query:
+            visual_type = visual_json.get("visual", {}).get("visualType", "")
+            commands_qs = _convert_commands_to_query_state(vc_query, visual_type)
+            if commands_qs:
+                visual_json["visual"]["query"] = {"queryState": commands_qs}
 
     return visual_json
 
@@ -294,9 +377,13 @@ def _build_visual_block(sv: dict) -> dict:
     if query_state:
         visual["query"] = {"queryState": query_state}
     elif "query" in sv:
-        # Fallback: copy query as-is (may be in Commands format — won't work with
-        # extract_metadata.py but preserves the data for inspection)
-        visual["query"] = sv["query"]
+        # Fallback: try converting Commands format → queryState
+        commands_qs = _convert_commands_to_query_state(
+            sv["query"], sv.get("visualType", "")
+        )
+        if commands_qs:
+            visual["query"] = {"queryState": commands_qs}
+        # else: visual has no usable query — extract_metadata will skip it
 
     if "objects" in sv:
         visual["objects"] = sv["objects"]
@@ -406,6 +493,95 @@ def _build_query_state(sv: dict) -> Optional[dict]:
 
         if pbip_projections:
             query_state[role_name] = {"projections": pbip_projections}
+
+    return query_state if query_state else None
+
+
+# Role inference: map visual type + field type → queryState role name
+# Columns are grouping fields, Measures/Aggregations are value fields
+_GROUPING_ROLE = {
+    "card": "Values",
+    "cardVisual": "Values",
+    "multiRowCard": "Values",
+    "kpi": "Values",
+    "gauge": "Values",
+    "slicer": "Values",
+    "tableEx": "Values",
+    "pivotTable": "Rows",
+    "matrix": "Rows",
+    "treemap": "Group",
+}
+_VALUE_ROLE = {
+    "pivotTable": "Values",
+    "matrix": "Values",
+    "treemap": "Values",
+}
+
+
+def _convert_commands_to_query_state(
+    query: dict, visual_type: str
+) -> Optional[dict]:
+    """Convert a SemanticQueryDataShapeCommand query into PBIP queryState.
+
+    This is the fallback path for visuals that don't have prototypeQuery+projections.
+    Role names are inferred from visual type and field type (Column vs Measure).
+    """
+    # Navigate to the inner Query object
+    commands = query.get("Commands", [])
+    if not commands:
+        return None
+    sqds = commands[0].get("SemanticQueryDataShapeCommand", {})
+    inner_query = sqds.get("Query", {})
+    if not inner_query:
+        return None
+
+    # Build alias → entity map
+    alias_to_entity = {}
+    for entry in inner_query.get("From", []):
+        alias = entry.get("Name", "")
+        entity = entry.get("Entity", "")
+        if alias and entity:
+            alias_to_entity[alias] = entity
+
+    select_entries = inner_query.get("Select", [])
+    if not select_entries:
+        return None
+
+    # Determine the role for grouping (Column) vs value (Measure) fields
+    grouping_role = _GROUPING_ROLE.get(visual_type, "Category")
+    value_role = _VALUE_ROLE.get(visual_type, "Y")
+
+    # Build projections grouped by role
+    role_projections: dict[str, list] = {}
+    for sel in select_entries:
+        field_obj = _resolve_field_from_select(sel, alias_to_entity)
+        if not field_obj:
+            continue
+
+        query_ref = sel.get("Name", "")
+
+        # Determine role based on field type
+        field_type = next(iter(field_obj))  # "Column", "Measure", etc.
+        if field_type in ("Measure", "Aggregation"):
+            role = value_role
+        else:
+            role = grouping_role
+
+        proj: dict[str, Any] = {"field": field_obj}
+        if query_ref:
+            proj["queryRef"] = query_ref
+        display_name = sel.get("nativeQueryRef")
+        if display_name:
+            proj["displayName"] = display_name
+
+        role_projections.setdefault(role, []).append(proj)
+
+    # For cards/kpis/gauges where both columns and measures go to "Values",
+    # the grouping_role == value_role == "Values" so they merge naturally.
+
+    query_state = {}
+    for role_name, projs in role_projections.items():
+        query_state[role_name] = {"projections": projs}
 
     return query_state if query_state else None
 
@@ -802,7 +978,8 @@ def extract_pbix(
     _write_json(pages_dir / "pages.json", pages_json)
 
     # ---- Step 3: Per-page extraction ----
-    total_visuals = 0
+    total_containers = 0
+    data_visuals = 0
     for section in sections:
         section_name = section.get("name", "")
         if not section_name:
@@ -825,9 +1002,15 @@ def extract_pbix(
                 visual_dir = visuals_dir / visual_id
                 visual_dir.mkdir(exist_ok=True)
                 _write_json(visual_dir / "visual.json", visual_json)
-                total_visuals += 1
+                total_containers += 1
+                # Count data visuals (those with queryState)
+                if visual_json.get("visual", {}).get("query", {}).get("queryState"):
+                    data_visuals += 1
 
-    logger.info(f"Extracted {len(sections)} pages, {total_visuals} visuals")
+    logger.info(
+        f"Extracted {len(sections)} pages, {total_containers} visual containers "
+        f"({data_visuals} data visuals)"
+    )
 
     # ---- Step 4: Bookmarks ----
     bookmarks = extract_bookmarks(layout)
@@ -858,7 +1041,8 @@ def extract_pbix(
         model_root=None,
         report_name=report_name,
         page_count=len(sections),
-        visual_count=total_visuals,
+        visual_container_count=total_containers,
+        data_visual_count=data_visuals,
         bookmark_count=bookmark_count,
         semantic_model_source="none",
     )
@@ -924,7 +1108,8 @@ def main():
     print(f"  Report root:  {result.report_root}")
     print(f"  Model root:   {result.model_root or '(not extracted)'}")
     print(f"  Pages:        {result.page_count}")
-    print(f"  Visuals:      {result.visual_count}")
+    print(f"  Data visuals: {result.data_visual_count}")
+    print(f"  Visual containers (total): {result.visual_container_count}")
     print(f"  Bookmarks:    {result.bookmark_count}")
     print(f"  Model source: {result.semantic_model_source}")
 
