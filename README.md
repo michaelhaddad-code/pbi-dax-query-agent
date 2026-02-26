@@ -129,7 +129,7 @@ powerpointTask/
 pip install -r requirements.txt
 ```
 
-### One-command pipeline (recommended)
+### One-command pipeline 
 
 `pbi_pipeline.py` chains Skills 0→1→2 in a single command — no agent required:
 
