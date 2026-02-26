@@ -162,8 +162,13 @@ def condition_to_dax(condition: dict, from_entities: list) -> str:
     Handles:
       - Comparison (=, >, >=, <, <=, <>)
       - In (column IN {values})
-      - Not > In (NOT column IN {values})
+      - Not > In, Not > Contains, Not > StartsWith (negation wrapper)
       - And (left && right, recursive)
+      - Or (left || right, recursive)
+      - Between (col >= lower && col <= upper)
+      - Contains / DoesNotContain (CONTAINSSTRING)
+      - StartsWith / DoesNotStartWith (LEFT + LEN)
+      - IsBlank / IsNotBlank (ISBLANK)
 
     Args:
         condition: The Condition dict from Where[].Condition
@@ -177,7 +182,12 @@ def condition_to_dax(condition: dict, from_entities: list) -> str:
 
 
 def _condition_to_dax_inner(condition: dict, alias_map: dict) -> str:
-    """Recursive inner function for condition_to_dax."""
+    """Recursive inner function for condition_to_dax.
+
+    Handles: Comparison, In, Not (generic negation wrapper), And, Or,
+    Between, Contains, DoesNotContain, StartsWith, DoesNotStartWith,
+    IsBlank, IsNotBlank.
+    """
 
     # --- Comparison ---
     if "Comparison" in condition:
@@ -202,12 +212,12 @@ def _condition_to_dax_inner(condition: dict, alias_map: dict) -> str:
     if "In" in condition:
         return _in_to_dax(condition["In"], alias_map, negated=False)
 
-    # --- Not > In ---
+    # --- Not (generic negation wrapper) ---
     if "Not" in condition:
         inner_expr = condition["Not"].get("Expression", {})
         if "In" in inner_expr:
             return _in_to_dax(inner_expr["In"], alias_map, negated=True)
-        # Fallback: generic Not wrapping
+        # Fallback: generic Not wrapping (handles Not>Contains, Not>StartsWith, etc.)
         inner_dax = _condition_to_dax_inner(inner_expr, alias_map)
         return f"NOT ({inner_dax})"
 
@@ -217,6 +227,75 @@ def _condition_to_dax_inner(condition: dict, alias_map: dict) -> str:
         left_dax = _condition_to_dax_inner(and_node.get("Left", {}), alias_map)
         right_dax = _condition_to_dax_inner(and_node.get("Right", {}), alias_map)
         return f"{left_dax} && {right_dax}"
+
+    # --- Or ---
+    if "Or" in condition:
+        or_node = condition["Or"]
+        left_dax = _condition_to_dax_inner(or_node.get("Left", {}), alias_map)
+        right_dax = _condition_to_dax_inner(or_node.get("Right", {}), alias_map)
+        return f"({left_dax}) || ({right_dax})"
+
+    # --- Between (col >= lower && col <= upper) ---
+    if "Between" in condition:
+        between = condition["Between"]
+        left_col = between.get("Left", {})
+        table, col = _resolve_column_ref(left_col, alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        lower_val = parse_literal(between.get("Lower", {}).get("Literal", {}).get("Value", ""))
+        upper_val = parse_literal(between.get("Upper", {}).get("Literal", {}).get("Value", ""))
+        return f"{col_ref} >= {lower_val} && {col_ref} <= {upper_val}"
+
+    # --- Contains → CONTAINSSTRING(col, val) ---
+    if "Contains" in condition:
+        node = condition["Contains"]
+        table, col = _resolve_column_ref(node.get("Left", {}), alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        lit_val = node.get("Right", {}).get("Literal", {}).get("Value", "")
+        dax_val = parse_literal(lit_val)
+        return f"CONTAINSSTRING({col_ref}, {dax_val})"
+
+    # --- DoesNotContain → NOT CONTAINSSTRING(col, val) ---
+    if "DoesNotContain" in condition:
+        node = condition["DoesNotContain"]
+        table, col = _resolve_column_ref(node.get("Left", {}), alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        lit_val = node.get("Right", {}).get("Literal", {}).get("Value", "")
+        dax_val = parse_literal(lit_val)
+        return f"NOT CONTAINSSTRING({col_ref}, {dax_val})"
+
+    # --- StartsWith → LEFT(col, LEN(val)) = val ---
+    if "StartsWith" in condition:
+        node = condition["StartsWith"]
+        table, col = _resolve_column_ref(node.get("Left", {}), alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        lit_val = node.get("Right", {}).get("Literal", {}).get("Value", "")
+        dax_val = parse_literal(lit_val)
+        return f"LEFT({col_ref}, LEN({dax_val})) = {dax_val}"
+
+    # --- DoesNotStartWith → NOT (LEFT(col, LEN(val)) = val) ---
+    if "DoesNotStartWith" in condition:
+        node = condition["DoesNotStartWith"]
+        table, col = _resolve_column_ref(node.get("Left", {}), alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        lit_val = node.get("Right", {}).get("Literal", {}).get("Value", "")
+        dax_val = parse_literal(lit_val)
+        return f"NOT (LEFT({col_ref}, LEN({dax_val})) = {dax_val})"
+
+    # --- IsBlank → ISBLANK(col) ---
+    if "IsBlank" in condition:
+        node = condition["IsBlank"]
+        col_expr = node.get("Expression", {})
+        table, col = _resolve_column_ref(col_expr, alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        return f"ISBLANK({col_ref})"
+
+    # --- IsNotBlank → NOT ISBLANK(col) ---
+    if "IsNotBlank" in condition:
+        node = condition["IsNotBlank"]
+        col_expr = node.get("Expression", {})
+        table, col = _resolve_column_ref(col_expr, alias_map)
+        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        return f"NOT ISBLANK({col_ref})"
 
     return "-- unsupported condition type"
 

@@ -227,6 +227,7 @@ The pipeline uses fully automated, code-based DAX construction. No AI in the loo
 ```
 powerpointTask/
 ├── CLAUDE.md                       # This file
+├── pbi_pipeline.py                 # Unified CLI: chains Skills 0→1→2 end-to-end
 ├── skills/
 │   ├── pbix_extractor.py           # Skill 0: .pbix → PBIP folder converter
 │   ├── tmdl_parser.py              # Shared: TMDL semantic model parser

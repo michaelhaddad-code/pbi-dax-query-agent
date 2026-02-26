@@ -98,6 +98,7 @@ Bookmark-filtered queries wrap the base DAX with `CALCULATETABLE` / `CALCULATE` 
 powerpointTask/
 ├── CLAUDE.md                       # Agent instructions and skill documentation
 ├── README.md                       # This file
+├── pbi_pipeline.py                 # Unified CLI: chains Skills 0→1→2 (no agent needed)
 ├── requirements.txt                # Python dependencies
 ├── skills/
 │   ├── pbix_extractor.py           # Skill 0: .pbix → PBIP folder converter
@@ -126,7 +127,30 @@ powerpointTask/
 
 ```bash
 pip install -r requirements.txt
+```
 
+### One-command pipeline (recommended)
+
+`pbi_pipeline.py` chains Skills 0→1→2 in a single command — no agent required:
+
+```bash
+# From a sample report name
+python pbi_pipeline.py "Revenue Opportunities"
+
+# From a .pbix file
+python pbi_pipeline.py "report.pbix"
+
+# From explicit PBIP paths
+python pbi_pipeline.py --report-root "data/X.Report/definition" --model-root "data/X.SemanticModel/definition"
+```
+
+Output: `output/<ReportName>_metadata.xlsx` + `output/<ReportName>_dax_queries.xlsx`
+
+Options: `--output-dir` (default: `output/`), `--no-bookmarks`
+
+### Running skills individually
+
+```bash
 # From .pbix file
 python skills/pbix_extractor.py "report.pbix" --output "data/"
 
