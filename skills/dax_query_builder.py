@@ -46,6 +46,13 @@ def classify_field(usage):
     if "page filter" in u:
         return "page_filter"
 
+    # "Filter (Measure)" = measure dependency row from recursive resolution.
+    # Must be checked BEFORE grouping roles, because usage like
+    # "Visual Column, Filter (Measure)" contains "visual column" but is
+    # actually a measure (or its dependency), not a grouping column.
+    if "filter (measure)" in u:
+        return "measure"
+
     # Check for grouping roles (Visual Row, Visual Column, Visual Group)
     if any(k in u for k in ["visual row", "visual column", "visual group"]):
         return "grouping"
@@ -57,8 +64,8 @@ def classify_field(usage):
                              "visual min", "visual max", "visual target"]):
         return "measure"
 
-    # Check for filter (but not "Filter (Measure)" which is implicit)
-    if "filter" in u and "filter (measure)" not in u:
+    # Check for filter (but not "Filter (Measure)" which was already handled above)
+    if "filter" in u:
         return "filter"
 
     return "other"
@@ -79,6 +86,12 @@ def classify_visual_fields(fields):
     for f in fields:
         role = classify_field(f["usage"])
 
+        # Implicit measures (drag-and-drop aggregation) should be treated as measures
+        # even if their usage label would normally classify them as grouping (e.g.
+        # Table "Visual Column" with SUM aggregation)
+        if f.get("agg_func") and role in ("grouping", "other"):
+            role = "measure"
+
         if role == "grouping":
             grouping.append(f)
         elif role == "measure":
@@ -94,12 +107,76 @@ def classify_visual_fields(fields):
 
 
 # =============================================================================
+# CORE LOGIC: Implicit Measure Helpers
+# =============================================================================
+
+# Map PBI aggregation function names to DAX function names
+AGG_FUNC_MAP = {
+    "Sum": "SUM",
+    "Avg": "AVERAGE",
+    "Count": "COUNT",
+    "Min": "MIN",
+    "Max": "MAX",
+    "CountNonNull": "COUNTA",
+    "Median": "MEDIAN",
+}
+
+# DAX functions that require numeric columns — string columns need CONVERT wrapping
+NUMERIC_ONLY_FUNCS = {"SUM", "AVERAGE", "MEDIAN"}
+
+
+def _implicit_measure_dax(agg_func, table, column, model=None):
+    """Generate DAX expression for an implicit measure (drag-and-drop aggregation).
+
+    When the semantic model indicates the column is string type and the aggregation
+    requires numeric input (SUM, AVERAGE, MEDIAN), generates the iterator variant
+    with CONVERT for type coercion (e.g. SUMX with CONVERT to DOUBLE).
+
+    Args:
+        agg_func: Aggregation function name (e.g. "Sum", "Avg")
+        table: Table name in the semantic model
+        column: Column name in the semantic model
+        model: Optional SemanticModel for column type lookup
+
+    Returns:
+        DAX expression string, e.g. "SUM('Table'[Column])" or
+        "SUMX('Table', CONVERT('Table'[Column], DOUBLE))" for string columns
+    """
+    dax_func = AGG_FUNC_MAP.get(agg_func, agg_func.upper())
+    col_ref = f"'{table}'[{column}]"
+
+    # Check if column is string type and function requires numeric
+    if model and dax_func in NUMERIC_ONLY_FUNCS:
+        col_info = model.columns.get((table, column))
+        if col_info and col_info.data_type == "string":
+            # Use iterator variant with CONVERT for string→numeric coercion
+            x_func = dax_func + "X"
+            return f"{x_func}('{table}', CONVERT({col_ref}, DOUBLE))"
+
+    return f"{dax_func}({col_ref})"
+
+
+def _measure_expression(m, model=None):
+    """Return the DAX expression for a measure field.
+
+    For implicit measures (drag-and-drop aggregation), returns e.g. SUM('Table'[Column]).
+    For explicit measures, returns [MeasureName].
+    """
+    if m.get("agg_func"):
+        return _implicit_measure_dax(m["agg_func"], m["table_sm"], m["measure_name"], model)
+    return f"[{m['measure_name']}]"
+
+
+# =============================================================================
 # CORE LOGIC: DAX Query Generation
 # =============================================================================
 
-def build_dax_query(grouping, measures, filters, slicer_fields, visual_type):
+def build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model=None):
     """
     Build a DAX query string based on the classified fields.
+
+    Args:
+        model: Optional SemanticModel for column type lookup (implicit measure conversion)
 
     Returns: (pattern_name, dax_query_string)
     """
@@ -137,10 +214,11 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type):
     if not grouping and measures:
         if len(measures) == 1:
             m = measures[0]
-            dax = f"EVALUATE\n{{ [{m['measure_name']}] }}"
+            expr = _measure_expression(m, model)
+            dax = f"EVALUATE\n{{ {expr} }}"
             pattern = "Pattern 1: Single Measure"
         else:
-            pairs = [f"    \"{m['ui_name']}\", [{m['measure_name']}]" for m in measures]
+            pairs = [f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in measures]
             dax = "EVALUATE\nROW (\n" + ",\n".join(pairs) + "\n)"
             pattern = "Pattern 1: Multiple Measures"
         return pattern, dax
@@ -160,7 +238,7 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type):
     # ----- Pattern 3: Columns + Measures (Most Visuals) -----
     if grouping and measures:
         cols = [f"    '{g['table_sm']}'[{g['col_sm']}]" for g in grouping]
-        pairs = [f"    \"{m['ui_name']}\", [{m['measure_name']}]" for m in measures]
+        pairs = [f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in measures]
         all_args = cols + pairs
         dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
         return "Pattern 3: Columns + Measures", dax
@@ -209,9 +287,9 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
 
     # Pattern 1: Single Measure → CALCULATE
     if pattern == "Pattern 1: Single Measure":
-        # Original: EVALUATE\n{ [Measure] }
-        # Extract measure reference from { [Measure] }
-        measure_match = re.search(r"\{\s*(\[.+?\])\s*\}", clean_dax)
+        # Original: EVALUATE\n{ [Measure] } or EVALUATE\n{ SUM('Table'[Column]) }
+        # Extract measure expression from { <expr> }
+        measure_match = re.search(r"\{\s*(.+?)\s*\}", clean_dax)
         if measure_match:
             measure_ref = measure_match.group(1)
             return (f"EVALUATE\n"
@@ -400,7 +478,7 @@ def build_bookmark_queries(bookmarks, visuals, page_filters, model=None):
             if page_name in page_filters:
                 filters.extend(page_filters[page_name])
 
-            pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type)
+            pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
 
             if pattern == "Unknown":
                 continue
@@ -477,6 +555,9 @@ def read_extractor_output(filepath):
 
     # "Visual ID" is optional — present in new outputs, absent in older/manual files
     visual_id_idx = col_map.get("Visual ID")
+
+    # "Aggregation Function" is optional — present when implicit measures exist
+    agg_func_idx = col_map.get("Aggregation Function")
     has_visual_id = visual_id_idx is not None
 
     required = ["Page Name", "Visual/Table Name in PBI", "Visual Type",
@@ -511,6 +592,7 @@ def read_extractor_output(filepath):
             "table_sm": table_sm or "",
             "col_sm": col_sm or "",
             "measure_formula": (row[formula_idx] if formula_idx is not None else "") or "",
+            "agg_func": (row[agg_func_idx] if agg_func_idx is not None else "") or "",
         }
 
         # Separate page-level filters
@@ -622,16 +704,24 @@ def collect_filters_for_visual(page_name, visual_name, visual_id, filter_expr_da
 
 
 def _is_measure_filter(dax_expr):
-    """Detect whether a DAX filter expression targets a measure (needs FILTER wrapping).
+    """Detect whether a DAX filter expression is post-aggregation (needs FILTER wrapping).
 
-    Column filters have 'Table'[Column] pattern → False.
-    Measure filters have bare [Measure] pattern → True.
+    Post-aggregation filters:
+      - Aggregation-wrapped columns: MIN('T'[C]) > DATE(...)  → True
+      - Bare measure references:     [Rev Goal] > 0           → True
+
+    Pre-aggregation (column) filters:
+      - Direct column comparisons:   'T'[Status] IN {"Open"}  → False
 
     Examples:
-        "'Opportunities'[Status] IN {\"Open\"}"  → False (column filter)
-        "[Rev Goal] > 0"                          → True (measure filter)
+        "'Opportunities'[Status] IN {\"Open\"}"              → False (column filter)
+        "[Rev Goal] > 0"                                     → True  (measure filter)
+        "MIN('Nations WH_Claims'[loss_date]) > DATE(2020,1,1)" → True  (aggregation filter)
     """
-    # Column filter: contains 'Table'[Column] or 'Table'[Column] pattern
+    # Aggregation function wrapping a column → post-aggregation filter
+    if re.search(r'\b(SUM|AVERAGE|COUNT|COUNTA|MIN|MAX|MEDIAN|SUMX|AVERAGEX|COUNTX|MINX|MAXX)\s*\(', dax_expr):
+        return True
+    # Column filter: contains 'Table'[Column] pattern (no aggregation wrapper)
     if re.search(r"'[^']+'\[[^\]]+\]", dax_expr):
         return False
     # Bare [Measure] reference without table prefix
@@ -707,7 +797,7 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
             filters.extend(page_filters[page])
 
         # Build base DAX query
-        pattern, dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type)
+        pattern, dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
 
         # Add filter comments
         dax = add_filter_comments(dax, filters)
@@ -908,7 +998,7 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     if page in page_filters:
         filters.extend(page_filters[page])
 
-    pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type)
+    pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
 
     # Check for filter redundancy before wrapping with CALCULATETABLE
     active_filters = list(filter_exprs) if filter_exprs else []
@@ -1042,7 +1132,7 @@ def main():
         grouping, measures, filters, slicer_fields = classify_visual_fields(data["fields"])
         if page in page_filters:
             filters.extend(page_filters[page])
-        pattern, _ = build_dax_query(grouping, measures, filters, slicer_fields, data["visual_type"])
+        pattern, _ = build_dax_query(grouping, measures, filters, slicer_fields, data["visual_type"], model)
         filter_note = f" [has filters]" if filters else ""
         print(f"  {page} / {visual_name} ({data['visual_type']}) -> {pattern}{filter_note}")
 

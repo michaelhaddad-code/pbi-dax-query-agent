@@ -343,6 +343,7 @@ def _process_measure_field(page_name, vis_label, vis_type, display_name, usage, 
                 "Measure Formula": formula,
                 "Table in the Semantic Model": st["table"],
                 "Column in the Semantic Model": st["column"],
+                "Aggregation Function": "",
             })
     return rows
 
@@ -385,6 +386,14 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                 if is_measure:
                     formula = measures_lookup.get((fi["entity"], fi["property"]), "")
 
+                # Extract aggregation function for implicit measures (drag-and-drop)
+                agg_func = ""
+                if fi["field_type"].startswith("Aggregation"):
+                    # e.g. "Aggregation (Sum)" → "Sum"
+                    agg_match = re.match(r"Aggregation \((\w+)\)", fi["field_type"])
+                    if agg_match:
+                        agg_func = agg_match.group(1)
+
                 usage = get_usage_label(vis_type, role, is_measure)
 
                 if is_measure and formula:
@@ -404,6 +413,7 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         "Measure Formula": formula,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
+                        "Aggregation Function": agg_func,
                     })
 
     # --- Collect fields already captured (to skip duplicate auto-generated filters) ---
@@ -446,6 +456,7 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                 "Measure Formula": formula,
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
+                "Aggregation Function": "",
             })
 
     return rows
@@ -488,6 +499,7 @@ def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict) -
                 "Measure Formula": formula,
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
+                "Aggregation Function": "",
             })
     return rows
 
@@ -629,6 +641,7 @@ def extract_metadata(report_root: str, model_root: str,
                         "Measure Formula": formula,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
+                        "Aggregation Function": "",
                     })
             print(f"    Found {len(all_rows)} report-level filters")
         else:
@@ -729,6 +742,7 @@ def extract_metadata(report_root: str, model_root: str,
         "Measure Formula",
         "Table in the Semantic Model",
         "Column in the Semantic Model",
+        "Aggregation Function",
     ])
 
     pseudo_visuals = {'Page Filters', 'Report Filters'}

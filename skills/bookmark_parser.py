@@ -141,6 +141,82 @@ def _resolve_column_ref(col_expr: dict, alias_map: dict) -> tuple:
     return table, prop
 
 
+def _resolve_source_table(source_ref: dict, alias_map: dict) -> str:
+    """Resolve a SourceRef to a table name (shared by column, agg, measure)."""
+    source_alias = source_ref.get("Source", "")
+    if source_alias and source_alias in alias_map:
+        return alias_map[source_alias]
+    return source_ref.get("Entity", "")
+
+
+# PBI Aggregation Function IDs → DAX function names
+_AGG_FUNCTION_IDS = {
+    0: "SUM", 1: "AVERAGE", 2: "COUNT", 3: "MIN", 4: "MAX",
+    5: "COUNTA", 6: "MEDIAN",
+}
+
+
+def _resolve_left_expression(left: dict, alias_map: dict) -> str:
+    """Resolve the Left side of a Comparison/Between to a DAX expression.
+
+    Handles three expression types:
+      - Column:      {'Column': {'Expression': {'SourceRef': ...}, 'Property': 'col'}}
+                     → 'Table'[col]
+      - Aggregation: {'Aggregation': {'Expression': {'Column': ...}, 'Function': 3}}
+                     → MIN('Table'[col])
+      - Measure:     {'Measure': {'Expression': {'SourceRef': ...}, 'Property': 'M'}}
+                     → [M]
+    """
+    # Column reference (most common)
+    if "Column" in left:
+        table, col = _resolve_column_ref(left, alias_map)
+        return f"'{table}'[{col}]" if table else f"[{col}]"
+
+    # Aggregation: e.g. MIN('Table'[col])
+    if "Aggregation" in left:
+        agg = left["Aggregation"]
+        func_id = agg.get("Function", 0)
+        dax_func = _AGG_FUNCTION_IDS.get(func_id, f"AGG{func_id}")
+        inner_expr = agg.get("Expression", {})
+        # Inner expression is typically a Column
+        if "Column" in inner_expr:
+            table, col = _resolve_column_ref(inner_expr, alias_map)
+            col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+            return f"{dax_func}({col_ref})"
+        return f"{dax_func}(/* unresolved */)"
+
+    # Measure reference: e.g. [Is Top 10 by LossPaid]
+    if "Measure" in left:
+        meas = left["Measure"]
+        prop = meas.get("Property", "")
+        return f"[{prop}]"
+
+    return "/* unresolved expression */"
+
+
+def _resolve_right_value(right: dict) -> str:
+    """Resolve the Right side of a Comparison to a DAX value.
+
+    Handles two expression types:
+      - Literal:  {'Literal': {'Value': '1L'}} → 1
+      - DateSpan: {'DateSpan': {'Expression': {'Literal': {'Value': "datetime'...'"}}, 'TimeUnit': 5}}
+                  → DATE(2020, 1, 1)  (with a note about DateSpan time unit)
+    """
+    # Standard literal
+    if "Literal" in right:
+        lit_val = right["Literal"].get("Value", "")
+        return parse_literal(lit_val)
+
+    # DateSpan: contains a base date and a time unit for range
+    if "DateSpan" in right:
+        ds = right["DateSpan"]
+        inner_lit = ds.get("Expression", {}).get("Literal", {}).get("Value", "")
+        base_date = parse_literal(inner_lit) if inner_lit else "/* unknown date */"
+        return base_date
+
+    return "/* unresolved value */"
+
+
 # ============================================================
 # Condition → DAX conversion
 # ============================================================
@@ -198,15 +274,13 @@ def _condition_to_dax_inner(condition: dict, alias_map: dict) -> str:
         left = comp.get("Left", {})
         right = comp.get("Right", {})
 
-        # Left side: column reference
-        table, col = _resolve_column_ref(left, alias_map)
-        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
+        # Left side: Column, Aggregation, or Measure expression
+        left_dax = _resolve_left_expression(left, alias_map)
 
-        # Right side: literal value
-        lit_val = right.get("Literal", {}).get("Value", "")
-        dax_val = parse_literal(lit_val)
+        # Right side: Literal or DateSpan value
+        right_dax = _resolve_right_value(right)
 
-        return f"{col_ref} {op} {dax_val}"
+        return f"{left_dax} {op} {right_dax}"
 
     # --- In ---
     if "In" in condition:
@@ -239,11 +313,10 @@ def _condition_to_dax_inner(condition: dict, alias_map: dict) -> str:
     if "Between" in condition:
         between = condition["Between"]
         left_col = between.get("Left", {})
-        table, col = _resolve_column_ref(left_col, alias_map)
-        col_ref = f"'{table}'[{col}]" if table else f"[{col}]"
-        lower_val = parse_literal(between.get("Lower", {}).get("Literal", {}).get("Value", ""))
-        upper_val = parse_literal(between.get("Upper", {}).get("Literal", {}).get("Value", ""))
-        return f"{col_ref} >= {lower_val} && {col_ref} <= {upper_val}"
+        left_dax = _resolve_left_expression(left_col, alias_map)
+        lower_val = _resolve_right_value(between.get("Lower", {}))
+        upper_val = _resolve_right_value(between.get("Upper", {}))
+        return f"{left_dax} >= {lower_val} && {left_dax} <= {upper_val}"
 
     # --- Contains → CONTAINSSTRING(col, val) ---
     if "Contains" in condition:
