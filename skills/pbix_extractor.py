@@ -26,12 +26,21 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # Try importing pbixray at module level — optional dependency
+HAS_PBIXRAY = False
+PBIXRAY_ERROR = ""
 try:
     from pbixray import PBIXRay
-
     HAS_PBIXRAY = True
-except ImportError:
-    HAS_PBIXRAY = False
+except ImportError as e:
+    PBIXRAY_ERROR = str(e)
+except OSError as e:
+    # OSError typically means a missing C compiler or shared library
+    PBIXRAY_ERROR = (
+        f"pbixray failed to load (likely missing C compiler): {e}. "
+        "Install a C compiler (e.g. Visual Studio Build Tools on Windows, "
+        "gcc on Linux) and reinstall pbixray, or use PBIP format instead."
+    )
+    logger.warning(PBIXRAY_ERROR)
 
 
 @dataclass
@@ -887,6 +896,27 @@ def extract_semantic_model_pbixray(pbix_path: str, model_dir: Path) -> bool:
     except Exception as e:
         logger.warning(f"pbixray: could not extract schema: {e}")
 
+    # Extract relationships
+    relationships = []
+    try:
+        rel_data = pbix.relationships
+        if rel_data is not None and not rel_data.empty:
+            for _, row in rel_data.iterrows():
+                rel = {
+                    "fromTable": str(row.get("FromTableName", row.get("fromTableName", ""))),
+                    "fromColumn": str(row.get("FromColumnName", row.get("fromColumnName", ""))),
+                    "toTable": str(row.get("ToTableName", row.get("toTableName", ""))),
+                    "toColumn": str(row.get("ToColumnName", row.get("toColumnName", ""))),
+                    "isActive": bool(row.get("IsActive", row.get("isActive", True))),
+                    "cardinality": str(row.get("Cardinality", row.get("cardinality", ""))),
+                    "crossFiltering": str(row.get("CrossFilteringBehavior", row.get("crossFilteringBehavior", ""))),
+                }
+                if rel["fromTable"] and rel["toTable"]:
+                    relationships.append(rel)
+            logger.info(f"pbixray: extracted {len(relationships)} relationships")
+    except Exception as e:
+        logger.warning(f"pbixray: could not extract relationships: {e}")
+
     if not measures_by_table and not columns_by_table:
         logger.warning("pbixray: no measures or columns extracted")
         return False
@@ -915,9 +945,28 @@ def extract_semantic_model_pbixray(pbix_path: str, model_dir: Path) -> bool:
         "database Database\n", encoding="utf-8"
     )
 
+    # Write .source marker so downstream code knows types are unreliable
+    (model_dir / ".source").write_text("pbixray", encoding="utf-8")
+
+    # Write relationships.json if any were extracted
+    if relationships:
+        import json as _json
+        (model_dir / "relationships.json").write_text(
+            _json.dumps(relationships, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
     logger.info(
         f"pbixray: wrote {len(all_tables)} TMDL files to {tables_dir}"
     )
+
+    # Log known pbixray limitations
+    logger.warning(
+        "pbixray limitations: column data types are ALL reported as 'string' "
+        "(unreliable). Calculated columns/tables may be missing. "
+        "The pipeline will use CONVERT() for numeric aggregations to work around this."
+    )
+
     return True
 
 
@@ -1119,6 +1168,11 @@ def extract_pbix(
             if HAS_PBIXRAY:
                 logger.warning(
                     "pbixray could not extract the semantic model from this .pbix file. "
+                    "Report structure was extracted but measure formulas will be missing."
+                )
+            elif PBIXRAY_ERROR and "C compiler" in PBIXRAY_ERROR:
+                logger.warning(
+                    f"pbixray could not load: {PBIXRAY_ERROR}\n"
                     "Report structure was extracted but measure formulas will be missing."
                 )
             else:

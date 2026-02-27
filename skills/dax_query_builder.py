@@ -125,18 +125,24 @@ AGG_FUNC_MAP = {
 NUMERIC_ONLY_FUNCS = {"SUM", "AVERAGE", "MEDIAN"}
 
 
-def _implicit_measure_dax(agg_func, table, column, model=None):
+def _implicit_measure_dax(agg_func, table, column, model=None,
+                          data_type="", model_source=""):
     """Generate DAX expression for an implicit measure (drag-and-drop aggregation).
 
-    When the semantic model indicates the column is string type and the aggregation
-    requires numeric input (SUM, AVERAGE, MEDIAN), generates the iterator variant
-    with CONVERT for type coercion (e.g. SUMX with CONVERT to DOUBLE).
+    CONVERT logic (priority order):
+    1. If model_source == "pbixray" → ALWAYS use SUMX+CONVERT for numeric funcs
+       (pbixray reports ALL columns as string, types are unreliable)
+    2. Else if data_type == "string" → use CONVERT (real PBIP says it's string)
+    3. Else fallback to model.columns check (standalone CLI backward compat)
+    4. Otherwise use plain aggregation function
 
     Args:
         agg_func: Aggregation function name (e.g. "Sum", "Avg")
         table: Table name in the semantic model
         column: Column name in the semantic model
         model: Optional SemanticModel for column type lookup
+        data_type: Column data type from metadata Excel (optional)
+        model_source: Semantic model source from metadata Excel (optional)
 
     Returns:
         DAX expression string, e.g. "SUM('Table'[Column])" or
@@ -145,11 +151,22 @@ def _implicit_measure_dax(agg_func, table, column, model=None):
     dax_func = AGG_FUNC_MAP.get(agg_func, agg_func.upper())
     col_ref = f"'{table}'[{column}]"
 
-    # Check if column is string type and function requires numeric
-    if model and dax_func in NUMERIC_ONLY_FUNCS:
-        col_info = model.columns.get((table, column))
-        if col_info and col_info.data_type == "string":
-            # Use iterator variant with CONVERT for string→numeric coercion
+    if dax_func in NUMERIC_ONLY_FUNCS:
+        needs_convert = False
+
+        if model_source == "pbixray":
+            # pbixray marks ALL columns as string — always use CONVERT
+            needs_convert = True
+        elif data_type == "string":
+            # Real PBIP data type says string — use CONVERT
+            needs_convert = True
+        elif model:
+            # Fallback: check model.columns (standalone CLI without metadata columns)
+            col_info = model.columns.get((table, column))
+            if col_info and col_info.data_type == "string":
+                needs_convert = True
+
+        if needs_convert:
             x_func = dax_func + "X"
             return f"{x_func}('{table}', CONVERT({col_ref}, DOUBLE))"
 
@@ -163,7 +180,11 @@ def _measure_expression(m, model=None):
     For explicit measures, returns [MeasureName].
     """
     if m.get("agg_func"):
-        return _implicit_measure_dax(m["agg_func"], m["table_sm"], m["measure_name"], model)
+        return _implicit_measure_dax(
+            m["agg_func"], m["table_sm"], m["measure_name"], model,
+            data_type=m.get("data_type", ""),
+            model_source=m.get("model_source", ""),
+        )
     return f"[{m['measure_name']}]"
 
 
@@ -558,6 +579,9 @@ def read_extractor_output(filepath):
 
     # "Aggregation Function" is optional — present when implicit measures exist
     agg_func_idx = col_map.get("Aggregation Function")
+    # "Data Type" and "Semantic Model Source" — optional, added for pbixray workaround
+    data_type_idx = col_map.get("Data Type")
+    model_source_idx = col_map.get("Semantic Model Source")
     has_visual_id = visual_id_idx is not None
 
     required = ["Page Name", "Visual/Table Name in PBI", "Visual Type",
@@ -593,6 +617,8 @@ def read_extractor_output(filepath):
             "col_sm": col_sm or "",
             "measure_formula": (row[formula_idx] if formula_idx is not None else "") or "",
             "agg_func": (row[agg_func_idx] if agg_func_idx is not None else "") or "",
+            "data_type": (row[data_type_idx] if data_type_idx is not None else "") or "",
+            "model_source": (row[model_source_idx] if model_source_idx is not None else "") or "",
         }
 
         # Separate page-level filters

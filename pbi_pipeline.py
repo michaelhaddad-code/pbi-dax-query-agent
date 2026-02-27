@@ -115,10 +115,11 @@ def main():
     report_root = None
     model_root = None
     report_name = None
+    semantic_model_source = ""  # Track model provenance through the pipeline
 
     # --- Mode detection ---
     if args.report_root and args.model_root:
-        # Explicit PBIP paths
+        # Explicit PBIP paths — source auto-detected from .source marker by parse_semantic_model()
         report_root = args.report_root
         model_root = args.model_root
         # Derive name from report root path
@@ -143,6 +144,7 @@ def main():
         report_root = result.report_root
         model_root = result.model_root
         report_name = result.report_name
+        semantic_model_source = result.semantic_model_source
 
         print(f"\n    Extracted: {report_name}")
         print(f"    Pages: {result.page_count}, Data visuals: {result.data_visual_count}, "
@@ -182,7 +184,8 @@ def main():
 
     include_bookmarks = not args.no_bookmarks
     df, bookmarks_list, filter_expressions = extract_metadata(
-        report_root, model_root, include_bookmarks=include_bookmarks
+        report_root, model_root, include_bookmarks=include_bookmarks,
+        semantic_model_source=semantic_model_source,
     )
     export_to_excel(df, metadata_path, bookmarks_list=bookmarks_list,
                     filter_expressions=filter_expressions)

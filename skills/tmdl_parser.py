@@ -11,6 +11,7 @@ Used by:
   - Skill 2 (dax_query_builder.py) via parse_semantic_model() for formula lookup
 """
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +31,18 @@ class TmdlColumn:
 
 
 @dataclass
+class TmdlRelationship:
+    """A relationship between two tables in the semantic model."""
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    is_active: bool = True
+    cardinality: str = ""       # e.g. "oneToMany", "manyToOne"
+    cross_filtering: str = ""   # e.g. "oneDirection", "bothDirections"
+
+
+@dataclass
 class SemanticModel:
     """Full semantic model parsed from TMDL files."""
     # (table, measure_name) -> DAX formula
@@ -39,6 +52,19 @@ class SemanticModel:
     # Flat indexes for case-insensitive lookup: lowercase name -> list of (table, name)
     _measure_index: dict = field(default_factory=dict)
     _column_index: dict = field(default_factory=dict)
+    # Model provenance: "pbixray", "pbip", or "" (unknown)
+    source: str = ""
+    # Relationships between tables
+    relationships: list = field(default_factory=list)
+
+    @property
+    def types_reliable(self) -> bool:
+        """Whether column data types can be trusted.
+
+        pbixray marks ALL columns as string regardless of actual type,
+        so types are unreliable when source is "pbixray" or unknown.
+        """
+        return self.source not in ("pbixray", "")
 
     def build_indexes(self):
         """Build case-insensitive lookup indexes after parsing."""
@@ -184,10 +210,37 @@ def parse_semantic_model(model_root) -> SemanticModel:
         model_root: Path to semantic model definition root (contains tables/).
 
     Returns:
-        SemanticModel with measures, columns, and lookup indexes.
+        SemanticModel with measures, columns, lookup indexes, source, and relationships.
     """
-    tables_dir = Path(model_root) / "tables"
+    model_root = Path(model_root)
+    tables_dir = model_root / "tables"
     model = SemanticModel()
+
+    # Read .source marker file if present (written by pbix_extractor)
+    source_file = model_root / ".source"
+    if source_file.is_file():
+        model.source = source_file.read_text(encoding="utf-8").strip()
+    else:
+        # No marker → assume real PBIP export
+        model.source = "pbip"
+
+    # Read relationships.json if present (written by pbix_extractor)
+    rel_file = model_root / "relationships.json"
+    if rel_file.is_file():
+        try:
+            rel_data = json.loads(rel_file.read_text(encoding="utf-8"))
+            for r in rel_data:
+                model.relationships.append(TmdlRelationship(
+                    from_table=r.get("fromTable", ""),
+                    from_column=r.get("fromColumn", ""),
+                    to_table=r.get("toTable", ""),
+                    to_column=r.get("toColumn", ""),
+                    is_active=r.get("isActive", True),
+                    cardinality=r.get("cardinality", ""),
+                    cross_filtering=r.get("crossFiltering", ""),
+                ))
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"WARNING: Could not parse relationships.json: {e}")
 
     if not tables_dir.is_dir():
         print(f"WARNING: Tables directory not found: {tables_dir}")

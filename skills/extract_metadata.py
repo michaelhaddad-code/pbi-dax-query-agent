@@ -20,7 +20,7 @@ from collections import Counter
 
 import pandas as pd
 
-from tmdl_parser import parse_tmdl_files
+from tmdl_parser import parse_semantic_model
 from bookmark_parser import parse_bookmarks, extract_single_filter
 
 
@@ -326,8 +326,23 @@ def _get_visual_title(vis: dict) -> str:
     return ""
 
 
+def _lookup_data_type(model, table: str, column: str, field_type: str) -> str:
+    """Look up the TMDL data type for a column field.
+
+    Returns the data type string for Column/Aggregation/HierarchyLevel fields,
+    or "" for Measure fields (measures don't have a stored data type).
+    """
+    if not model or field_type == "Measure":
+        return ""
+    col_info = model.columns.get((table, column))
+    if col_info:
+        return col_info.data_type
+    return ""
+
+
 def _process_measure_field(page_name, vis_label, vis_type, display_name, usage, formula,
-                           entity, prop, measures_lookup, visual_id=""):
+                           entity, prop, measures_lookup, visual_id="",
+                           data_type="", model_source=""):
     """Helper: resolve a measure field into output rows (handles nested dependencies)."""
     rows = []
     if formula:
@@ -344,12 +359,15 @@ def _process_measure_field(page_name, vis_label, vis_type, display_name, usage, 
                 "Table in the Semantic Model": st["table"],
                 "Column in the Semantic Model": st["column"],
                 "Aggregation Function": "",
+                "Data Type": data_type,
+                "Semantic Model Source": model_source,
             })
     return rows
 
 
 def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
-                 vis_type_counter: Counter, visual_id: str = "") -> list[dict]:
+                 vis_type_counter: Counter, visual_id: str = "",
+                 model=None, model_source: str = "") -> list[dict]:
     """Parse a single visual.json and return rows for the output."""
     rows = []
     vis = visual_json.get("visual", {})
@@ -395,12 +413,14 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         agg_func = agg_match.group(1)
 
                 usage = get_usage_label(vis_type, role, is_measure)
+                dt = _lookup_data_type(model, fi["entity"], fi["property"], fi["field_type"])
 
                 if is_measure and formula:
                     rows.extend(_process_measure_field(
                         page_name, vis_label, vis_type, display_name, usage, formula,
                         fi["entity"], fi["property"], measures_lookup,
                         visual_id=visual_id,
+                        data_type=dt, model_source=model_source,
                     ))
                 else:
                     rows.append({
@@ -414,6 +434,8 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
                         "Aggregation Function": agg_func,
+                        "Data Type": dt,
+                        "Semantic Model Source": model_source,
                     })
 
     # --- Collect fields already captured (to skip duplicate auto-generated filters) ---
@@ -433,6 +455,7 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
 
             is_measure = fi["field_type"] == "Measure"
             formula = ""
+            dt = _lookup_data_type(model, fi["entity"], fi["property"], fi["field_type"])
             if is_measure:
                 formula = measures_lookup.get((fi["entity"], fi["property"]), "")
                 usage_str = "Filter (Measure)"
@@ -441,6 +464,7 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         page_name, vis_label, vis_type, fi["property"], usage_str, formula,
                         fi["entity"], fi["property"], measures_lookup,
                         visual_id=visual_id,
+                        data_type=dt, model_source=model_source,
                     ))
                     continue
             else:
@@ -457,6 +481,8 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
                 "Aggregation Function": "",
+                "Data Type": dt,
+                "Semantic Model Source": model_source,
             })
 
     return rows
@@ -466,7 +492,8 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
 # Page filter parser
 # ============================================================
 
-def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict) -> list[dict]:
+def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict,
+                       model=None, model_source: str = "") -> list[dict]:
     """Extract page-level filters."""
     rows = []
     filters = page_json.get("filterConfig", {}).get("filters", [])
@@ -476,6 +503,7 @@ def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict) -
         for fi in field_infos:
             is_measure = fi["field_type"] == "Measure"
             formula = ""
+            dt = _lookup_data_type(model, fi["entity"], fi["property"], fi["field_type"])
             if is_measure:
                 formula = measures_lookup.get((fi["entity"], fi["property"]), "")
                 usage_str = "Page Filter (Measure)"
@@ -484,6 +512,7 @@ def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict) -
                         page_name, "Page Filters", "pageFilter", fi["property"],
                         usage_str, formula, fi["entity"], fi["property"], measures_lookup,
                         visual_id="",
+                        data_type=dt, model_source=model_source,
                     ))
                     continue
             else:
@@ -500,6 +529,8 @@ def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict) -
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
                 "Aggregation Function": "",
+                "Data Type": dt,
+                "Semantic Model Source": model_source,
             })
     return rows
 
@@ -569,29 +600,42 @@ def extract_filter_expressions_from_list(filters: list, page_name: str,
 # ============================================================
 
 def extract_metadata(report_root: str, model_root: str,
-                     include_bookmarks: bool = True) -> tuple:
+                     include_bookmarks: bool = True,
+                     semantic_model_source: str = "") -> tuple:
     """Main entry point: extract all metadata from a PBIP report.
 
     Args:
         report_root: Path to PBIP report definition root (contains pages/, report.json)
         model_root: Path to semantic model definition root (contains tables/)
         include_bookmarks: Whether to parse and include bookmark data (default True)
+        semantic_model_source: Override for model source ("pbixray", "pbip", etc.)
+            If empty, parse_semantic_model() auto-detects from .source marker file.
 
     Returns:
         Tuple of (metadata_df, bookmarks_list, filter_expressions) where
         bookmarks_list and filter_expressions may be empty.
     """
-    tables_dir = Path(model_root) / "tables"
     pages_dir = Path(report_root) / "pages"
 
     print("=" * 60)
     print("PBI AutoGov — Metadata Extractor")
     print("=" * 60)
 
-    # [1] Parse measures from semantic model
-    print(f"\n[1] Parsing semantic model: {tables_dir}")
-    measures_lookup = parse_tmdl_files(tables_dir)
+    # [1] Parse semantic model (measures + columns + source + relationships)
+    print(f"\n[1] Parsing semantic model: {model_root}")
+    model = parse_semantic_model(model_root)
+    # Override source if explicitly provided by caller (e.g. from pipeline)
+    if semantic_model_source:
+        model.source = semantic_model_source
+    model_source = model.source
+    measures_lookup = model.measures
     print(f"    Found {len(measures_lookup)} measures")
+    print(f"    Model source: {model_source}")
+    if not model.types_reliable:
+        print("    WARNING: Column data types are unreliable (pbixray). "
+              "CONVERT() will be used for numeric aggregations.")
+    if model.relationships:
+        print(f"    Relationships: {len(model.relationships)}")
     if measures_lookup:
         print("    Sample measures:")
         for i, ((tbl, mname), _) in enumerate(list(measures_lookup.items())[:3]):
@@ -617,6 +661,7 @@ def extract_metadata(report_root: str, model_root: str,
                 for fi in field_infos:
                     is_measure = fi["field_type"] == "Measure"
                     formula = ""
+                    dt = _lookup_data_type(model, fi["entity"], fi["property"], fi["field_type"])
                     if is_measure:
                         formula = measures_lookup.get((fi["entity"], fi["property"]), "")
                         usage_str = "Report Filter (Measure)"
@@ -626,6 +671,7 @@ def extract_metadata(report_root: str, model_root: str,
                                 fi["property"], usage_str, formula,
                                 fi["entity"], fi["property"], measures_lookup,
                                 visual_id="",
+                                data_type=dt, model_source=model_source,
                             ))
                             continue
                     else:
@@ -642,6 +688,8 @@ def extract_metadata(report_root: str, model_root: str,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
                         "Aggregation Function": "",
+                        "Data Type": dt,
+                        "Semantic Model Source": model_source,
                     })
             print(f"    Found {len(all_rows)} report-level filters")
         else:
@@ -676,7 +724,8 @@ def extract_metadata(report_root: str, model_root: str,
         page_id_to_visual_ids[page_folder.name] = set()
 
         # Page filters
-        pf_rows = parse_page_filters(page_json, page_name, measures_lookup)
+        pf_rows = parse_page_filters(page_json, page_name, measures_lookup,
+                                     model=model, model_source=model_source)
         all_rows.extend(pf_rows)
         print(f"      Page filters: {len(pf_rows)}")
 
@@ -709,7 +758,8 @@ def extract_metadata(report_root: str, model_root: str,
             page_id_to_visual_ids[page_folder.name].add(vis_folder.name)
 
             vis_rows = parse_visual(vis_json, page_name, measures_lookup, vis_type_counter,
-                                    visual_id=vis_folder.name)
+                                    visual_id=vis_folder.name,
+                                    model=model, model_source=model_source)
             all_rows.extend(vis_rows)
             if vis_rows:
                 vis_count += 1
@@ -743,6 +793,8 @@ def extract_metadata(report_root: str, model_root: str,
         "Table in the Semantic Model",
         "Column in the Semantic Model",
         "Aggregation Function",
+        "Data Type",
+        "Semantic Model Source",
     ])
 
     pseudo_visuals = {'Page Filters', 'Report Filters'}
