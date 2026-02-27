@@ -1,10 +1,11 @@
 """
-PBIX to PBIP Converter
+Skill 0: PBIX to PBIP Converter
 
 Extracts a .pbix ZIP archive into the PBIP folder structure consumed by
 extract_metadata.py. Report structure (pages, visuals, filters, bookmarks)
-is extracted with pure Python. Semantic model (measures, columns) requires
-the optional `pbixray` package.
+is extracted with pure Python. Semantic model extraction (tables, columns,
+measures, relationships, hierarchies, variations, partitions, RLS roles)
+uses pbixray's PbixUnpacker + SQLiteHandler for full metadata access.
 
 Usage:
     python skills/pbix_extractor.py "path/to/report.pbix" --output "data/"
@@ -17,19 +18,25 @@ import logging
 import os
 import re
 import sys
+import uuid
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+import pandas as pd
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Try importing pbixray at module level — optional dependency
+# Try importing pbixray internals at module level — optional dependency
 HAS_PBIXRAY = False
 PBIXRAY_ERROR = ""
 try:
-    from pbixray import PBIXRay
+    from pbixray.pbix_unpacker import PbixUnpacker
+    from pbixray.utils import get_data_slice
+    from pbixray.meta.sqlite_handler import SQLiteHandler
+
     HAS_PBIXRAY = True
 except ImportError as e:
     PBIXRAY_ERROR = str(e)
@@ -54,7 +61,7 @@ class PbixExtractResult:
     visual_container_count: int = 0
     data_visual_count: int = 0  # visuals with queryState (actual data visuals)
     bookmark_count: int = 0
-    semantic_model_source: str = "none"  # "pbixray" | "user-provided" | "none"
+    semantic_model_source: str = "none"  # "pbixray-sqlite" | "user-provided" | "none"
 
 
 def read_layout_json(pbix_path: str) -> dict:
@@ -804,41 +811,702 @@ def build_bookmark_file(bm: dict) -> dict:
 # Semantic model extraction (requires pbixray)
 # ---------------------------------------------------------------------------
 
-# Mapping from pandas/pbixray data types to TMDL dataType values
-DTYPE_MAP = {
-    "int64": "int64",
-    "Int64": "int64",
-    "float64": "double",
-    "Float64": "double",
-    "object": "string",
-    "string": "string",
-    "bool": "boolean",
-    "boolean": "boolean",
-    "datetime64[ns]": "dateTime",
-    "datetime64": "dateTime",
+# TOM ExplicitDataType codes → TMDL dataType strings
+DATATYPE_MAP = {
+    2: "string", 6: "int64", 8: "double", 9: "dateTime",
+    10: "decimal", 11: "boolean", 17: "binary",
 }
 
+# TOM SummarizeBy codes → TMDL summarizeBy strings (None = omit)
+SUMMARIZE_BY_MAP = {
+    1: None, 2: "none", 3: "sum", 4: "min", 5: "max",
+    6: "count", 7: "average", 8: "distinctCount",
+}
 
-def map_data_type(dtype_str: str) -> str:
-    """Map a pandas/pbixray dtype string to a TMDL dataType value."""
-    dtype_str = str(dtype_str).strip()
-    if dtype_str in DTYPE_MAP:
-        return DTYPE_MAP[dtype_str]
-    if "int" in dtype_str.lower():
-        return "int64"
-    if "float" in dtype_str.lower() or "double" in dtype_str.lower():
-        return "double"
-    if "date" in dtype_str.lower() or "time" in dtype_str.lower():
-        return "dateTime"
-    if "bool" in dtype_str.lower():
-        return "boolean"
-    if "decimal" in dtype_str.lower():
-        return "decimal"
-    return "string"
+# Column.Type: 1=imported, 2=calculated, 3=RowNumber(skip), 4=calcTableCol
+# CrossFilteringBehavior: 1=oneDirection(default/omit), 2=bothDirections
+# JoinOnDateBehavior: 1=default(omit), 2=datePartOnly
+# Partition.Type: 2=calculated, 4=m
+
+# TOM Annotation ObjectType codes
+ANNOT_TABLE = 3
+ANNOT_COLUMN = 4
+ANNOT_MEASURE = 9
+ANNOT_HIERARCHY = 10
 
 
-def extract_semantic_model_pbixray(pbix_path: str, model_dir: Path) -> bool:
-    """Extract semantic model from .pbix using pbixray and write synthetic TMDL files.
+# ---------------------------------------------------------------------------
+# SQLite query helpers
+# ---------------------------------------------------------------------------
+
+
+def _query(handler, sql: str) -> tuple:
+    """Execute SQL via SQLiteHandler. Returns (DataFrame, success_bool).
+
+    success=True means the query executed (even if zero rows).
+    success=False means the query errored (missing table/column).
+    We distinguish by checking if the returned DataFrame has columns.
+    """
+    df = handler.execute_query(sql)
+    return df, len(df.columns) > 0
+
+
+def _safe_int(val, default=None):
+    """Safely convert a value to int, returning default on failure."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return default
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_str(val, default=""):
+    """Return string if non-null, else default."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return default
+    return str(val)
+
+
+def _safe_bool(val) -> bool:
+    """Return True if val is truthy (handles 0/1, True/False, NaN)."""
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return False
+    return bool(int(val))
+
+
+def query_tables(handler) -> pd.DataFrame:
+    """Query user tables from the metadata SQLite.
+
+    Filters by SystemFlags: 0=regular tables, 2=date/calculated tables.
+    Excludes SystemFlags=1 (internal RowNumber/hierarchy storage tables).
+    """
+    sql = """
+        SELECT ID, Name, IsHidden, ShowAsVariationsOnly, LineageTag, SystemFlags
+        FROM [Table]
+        WHERE SystemFlags IN (0, 2)
+    """
+    df, ok = _query(handler, sql)
+    if not ok:
+        # Fallback: only essential columns (still filter SystemFlags)
+        sql = "SELECT ID, Name FROM [Table] WHERE SystemFlags IN (0, 2)"
+        df, ok = _query(handler, sql)
+    if not ok:
+        # Last resort: no SystemFlags filter (column might not exist)
+        sql = "SELECT ID, Name FROM [Table]"
+        df, _ = _query(handler, sql)
+    return df
+
+
+def query_columns(handler, table_ids: list) -> pd.DataFrame:
+    """Query all columns (excluding RowNumber type 3) with SortByColumn resolution.
+
+    Uses progressive fallback: full query → without IsNameInferred/SortByColumn →
+    without SourceColumn/FormatString → minimal (ID, TableID, Name, Type, DataType).
+    """
+    if not table_ids:
+        return pd.DataFrame()
+    ids_str = ",".join(str(i) for i in table_ids)
+
+    # Tier 1: Full query with SortByColumn self-join + IsNameInferred
+    sql = f"""
+        SELECT c.ID, c.TableID, c.ExplicitName, c.InferredName, c.Type,
+               c.ExplicitDataType, c.SourceColumn, c.Expression, c.FormatString,
+               c.IsHidden, c.SummarizeBy, c.DataCategory, c.LineageTag,
+               c.IsNameInferred,
+               sc.ExplicitName AS SortByColumnName
+        FROM [Column] c
+        LEFT JOIN [Column] sc ON c.SortByColumnID = sc.ID
+        WHERE c.Type != 3 AND c.TableID IN ({ids_str})
+    """
+    df, ok = _query(handler, sql)
+    if ok:
+        return df
+
+    # Tier 2: Without IsNameInferred/InferredName and SortByColumn self-join
+    # (these columns don't exist in all PBIX SQLite schemas)
+    sql = f"""
+        SELECT c.ID, c.TableID, c.ExplicitName, c.Type,
+               c.ExplicitDataType, c.SourceColumn, c.Expression, c.FormatString,
+               c.IsHidden, c.SummarizeBy, c.DataCategory, c.LineageTag
+        FROM [Column] c
+        WHERE c.Type != 3 AND c.TableID IN ({ids_str})
+    """
+    df, ok = _query(handler, sql)
+    if ok:
+        logger.info("Column query: using Tier 2 (no SortByColumn/IsNameInferred)")
+        return df
+
+    # Tier 3: Core columns only (SourceColumn/FormatString may also be missing)
+    sql = f"""
+        SELECT c.ID, c.TableID, c.ExplicitName, c.Type,
+               c.ExplicitDataType, c.Expression, c.IsHidden, c.LineageTag
+        FROM [Column] c
+        WHERE c.Type != 3 AND c.TableID IN ({ids_str})
+    """
+    df, ok = _query(handler, sql)
+    if ok:
+        logger.info("Column query: using Tier 3 (no SourceColumn/FormatString)")
+        return df
+
+    # Tier 4: Minimal fallback
+    sql = f"""
+        SELECT c.ID, c.TableID, c.ExplicitName, c.Type,
+               c.ExplicitDataType, c.Expression
+        FROM [Column] c
+        WHERE c.Type != 3 AND c.TableID IN ({ids_str})
+    """
+    df, _ = _query(handler, sql)
+    logger.info("Column query: using Tier 4 (minimal)")
+    return df
+
+
+def query_measures(handler, table_ids: list) -> pd.DataFrame:
+    """Query all DAX measures."""
+    if not table_ids:
+        return pd.DataFrame()
+    ids_str = ",".join(str(i) for i in table_ids)
+    sql = f"""
+        SELECT m.ID, m.TableID, m.Name, m.Expression, m.FormatString,
+               m.IsHidden, m.DisplayFolder, m.Description, m.LineageTag
+        FROM [Measure] m
+        WHERE m.TableID IN ({ids_str})
+    """
+    df, ok = _query(handler, sql)
+    if not ok:
+        sql = f"""
+            SELECT m.ID, m.TableID, m.Name, m.Expression
+            FROM [Measure] m
+            WHERE m.TableID IN ({ids_str})
+        """
+        df, _ = _query(handler, sql)
+    return df
+
+
+def query_hierarchies_and_levels(handler, table_ids: list) -> pd.DataFrame:
+    """Query Hierarchy + Level + Column join. May fail if tables don't exist."""
+    if not table_ids:
+        return pd.DataFrame()
+    ids_str = ",".join(str(i) for i in table_ids)
+    sql = f"""
+        SELECT h.ID AS HierarchyID, h.Name AS HierarchyName, h.TableID,
+               h.IsHidden AS HierarchyIsHidden, h.LineageTag AS HierarchyLineageTag,
+               l.ID AS LevelID, l.Ordinal AS LevelOrdinal, l.Name AS LevelName,
+               l.LineageTag AS LevelLineageTag,
+               c.ExplicitName AS LevelColumnName
+        FROM [Hierarchy] h
+        LEFT JOIN [Level] l ON l.HierarchyID = h.ID
+        LEFT JOIN [Column] c ON l.ColumnID = c.ID
+        WHERE h.TableID IN ({ids_str})
+        ORDER BY h.ID, l.Ordinal
+    """
+    df, ok = _query(handler, sql)
+    return df if ok else pd.DataFrame()
+
+
+def query_variations(handler, table_ids: list) -> pd.DataFrame:
+    """Query Variation + Column + Relationship + Hierarchy join.
+
+    May fail if Variation/Hierarchy tables don't exist in this SQLite DB.
+    """
+    if not table_ids:
+        return pd.DataFrame()
+    ids_str = ",".join(str(i) for i in table_ids)
+    sql = f"""
+        SELECT v.ID, v.ColumnID, v.Name AS VariationName, v.IsDefault,
+               c.ExplicitName AS OwnerColumnName, c.TableID,
+               r.Name AS RelationshipName,
+               h.Name AS DefaultHierarchyName,
+               ht.Name AS HierarchyTableName
+        FROM [Variation] v
+        JOIN [Column] c ON v.ColumnID = c.ID
+        LEFT JOIN [Relationship] r ON v.RelationshipID = r.ID
+        LEFT JOIN [Hierarchy] h ON v.DefaultHierarchyID = h.ID
+        LEFT JOIN [Table] ht ON h.TableID = ht.ID
+        WHERE c.TableID IN ({ids_str})
+    """
+    df, ok = _query(handler, sql)
+    return df if ok else pd.DataFrame()
+
+
+def query_relationships(handler) -> pd.DataFrame:
+    """Query all relationships with table/column name resolution."""
+    sql = """
+        SELECT r.ID, r.Name AS RelName,
+               ft.Name AS FromTableName, fc.ExplicitName AS FromColumnName,
+               tt.Name AS ToTableName, tc.ExplicitName AS ToColumnName,
+               r.IsActive, r.CrossFilteringBehavior, r.JoinOnDateBehavior
+        FROM [Relationship] r
+        LEFT JOIN [Table] ft ON r.FromTableID = ft.ID
+        LEFT JOIN [Column] fc ON r.FromColumnID = fc.ID
+        LEFT JOIN [Table] tt ON r.ToTableID = tt.ID
+        LEFT JOIN [Column] tc ON r.ToColumnID = tc.ID
+    """
+    df, ok = _query(handler, sql)
+    if not ok:
+        # Fallback: without JoinOnDateBehavior and Relationship.Name
+        sql = """
+            SELECT r.ID,
+                   ft.Name AS FromTableName, fc.ExplicitName AS FromColumnName,
+                   tt.Name AS ToTableName, tc.ExplicitName AS ToColumnName,
+                   r.IsActive, r.CrossFilteringBehavior
+            FROM [Relationship] r
+            LEFT JOIN [Table] ft ON r.FromTableID = ft.ID
+            LEFT JOIN [Column] fc ON r.FromColumnID = fc.ID
+            LEFT JOIN [Table] tt ON r.ToTableID = tt.ID
+            LEFT JOIN [Column] tc ON r.ToColumnID = tc.ID
+        """
+        df, _ = _query(handler, sql)
+    return df
+
+
+def query_partitions(handler, table_ids: list) -> pd.DataFrame:
+    """Query M (type 4) and calculated (type 2) partitions."""
+    if not table_ids:
+        return pd.DataFrame()
+    ids_str = ",".join(str(i) for i in table_ids)
+    sql = f"""
+        SELECT p.ID, p.TableID, p.Name AS PartitionName, p.Type,
+               p.QueryDefinition, p.Mode
+        FROM [partition] p
+        WHERE p.TableID IN ({ids_str}) AND p.Type IN (2, 4)
+    """
+    df, ok = _query(handler, sql)
+    if not ok:
+        # Fallback: without Mode and Name
+        sql = f"""
+            SELECT p.ID, p.TableID, p.Type, p.QueryDefinition
+            FROM [partition] p
+            WHERE p.TableID IN ({ids_str}) AND p.Type IN (2, 4)
+        """
+        df, _ = _query(handler, sql)
+    return df
+
+
+def query_rls_roles(handler) -> pd.DataFrame:
+    """Query RLS role definitions (TablePermission + Role + Table)."""
+    sql = """
+        SELECT r.Name AS RoleName, r.Description AS RoleDescription,
+               t.Name AS TableName, tp.FilterExpression
+        FROM [TablePermission] tp
+        JOIN [Role] r ON tp.RoleID = r.ID
+        JOIN [Table] t ON tp.TableID = t.ID
+    """
+    df, _ = _query(handler, sql)
+    return df
+
+
+def query_annotations(handler) -> pd.DataFrame:
+    """Query all annotations with ObjectType and ObjectID for mapping."""
+    sql = "SELECT ObjectType, ObjectID, Name, Value FROM [Annotation]"
+    df, ok = _query(handler, sql)
+    if not ok:
+        # Fallback: model-level only (ObjectType=1)
+        sql = "SELECT Name, Value FROM [Annotation] WHERE ObjectType = 1"
+        df, _ = _query(handler, sql)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# TMDL generation helpers
+# ---------------------------------------------------------------------------
+
+
+def tmdl_quote(name: str) -> str:
+    """Single-quote names containing spaces; escape embedded single quotes."""
+    if " " in name or "'" in name:
+        return "'" + name.replace("'", "''") + "'"
+    return name
+
+
+def _tmdl_col_ref(table_name: str, col_name: str) -> str:
+    """Format a Table.Column reference for TMDL (fromColumn/toColumn)."""
+    return f"{tmdl_quote(table_name)}.{tmdl_quote(col_name)}"
+
+
+def _emit_measure(m: pd.Series, annotations: list) -> list:
+    """Generate TMDL lines for a single measure block."""
+    lines = []
+    name = _safe_str(m.get("Name", ""))
+    expression = _safe_str(m.get("Expression", ""))
+
+    # Declaration line with expression
+    expr_lines = expression.strip().split("\n") if expression.strip() else [""]
+    if len(expr_lines) == 1:
+        lines.append(f"\tmeasure {tmdl_quote(name)} = {expr_lines[0].strip()}")
+    else:
+        lines.append(f"\tmeasure {tmdl_quote(name)} =")
+        lines.append("\t\t```")
+        for el in expr_lines:
+            lines.append(f"\t\t{el}")
+        lines.append("\t\t```")
+
+    # Properties
+    fmt = _safe_str(m.get("FormatString"))
+    if fmt:
+        lines.append(f"\t\tformatString: {fmt}")
+
+    tag = _safe_str(m.get("LineageTag"))
+    if tag:
+        lines.append(f"\t\tlineageTag: {tag}")
+
+    if _safe_bool(m.get("IsHidden")):
+        lines.append("\t\tisHidden")
+
+    display_folder = _safe_str(m.get("DisplayFolder"))
+    if display_folder:
+        lines.append(f"\t\tdisplayFolder: {display_folder}")
+
+    # Annotations
+    for ann_name, ann_val in annotations:
+        lines.append("")
+        lines.append(f"\t\tannotation {ann_name} = {ann_val}")
+
+    lines.append("")  # blank line after measure
+    return lines
+
+
+def _emit_column(c: pd.Series, col_variations: pd.DataFrame,
+                 annotations: list) -> list:
+    """Generate TMDL lines for a single column block."""
+    lines = []
+    col_type = _safe_int(c.get("Type"), 1)
+
+    # Determine display name
+    is_name_inferred = _safe_bool(c.get("IsNameInferred"))
+    if is_name_inferred and _safe_str(c.get("InferredName")):
+        name = _safe_str(c["InferredName"])
+    else:
+        name = _safe_str(c.get("ExplicitName", ""))
+
+    # Declaration line
+    if col_type == 2:
+        # Calculated column: column Name = expression
+        expression = _safe_str(c.get("Expression", ""))
+        expr_lines = expression.strip().split("\n") if expression.strip() else [""]
+        if len(expr_lines) == 1:
+            lines.append(f"\tcolumn {tmdl_quote(name)} = {expr_lines[0].strip()}")
+        else:
+            lines.append(f"\tcolumn {tmdl_quote(name)} =")
+            lines.append("\t\t```")
+            for el in expr_lines:
+                lines.append(f"\t\t{el}")
+            lines.append("\t\t```")
+    else:
+        # Imported (1) or calc table col (4)
+        lines.append(f"\tcolumn {tmdl_quote(name)}")
+
+    # Properties — order matches PBI Desktop output
+    if col_type in (1, 4):
+        dtype_code = _safe_int(c.get("ExplicitDataType"))
+        if dtype_code is not None:
+            dtype_str = DATATYPE_MAP.get(dtype_code, "string")
+            lines.append(f"\t\tdataType: {dtype_str}")
+
+    if _safe_bool(c.get("IsHidden")):
+        lines.append("\t\tisHidden")
+
+    fmt = _safe_str(c.get("FormatString"))
+    if fmt:
+        lines.append(f"\t\tformatString: {fmt}")
+
+    tag = _safe_str(c.get("LineageTag"))
+    if tag:
+        lines.append(f"\t\tlineageTag: {tag}")
+
+    data_cat = _safe_str(c.get("DataCategory"))
+    if data_cat:
+        lines.append(f"\t\tdataCategory: {data_cat}")
+
+    # summarizeBy
+    sb_code = _safe_int(c.get("SummarizeBy"))
+    if sb_code is not None:
+        sb_str = SUMMARIZE_BY_MAP.get(sb_code)
+        if sb_str:
+            lines.append(f"\t\tsummarizeBy: {sb_str}")
+
+    if is_name_inferred:
+        lines.append("\t\tisNameInferred")
+
+    # sourceColumn (imported=real name, calcTableCol=[Name], calculated=none)
+    if col_type == 1:
+        src = _safe_str(c.get("SourceColumn"))
+        if src:
+            lines.append(f"\t\tsourceColumn: {src}")
+        else:
+            lines.append(f"\t\tsourceColumn: {name}")
+    elif col_type == 4:
+        lines.append(f"\t\tsourceColumn: [{name}]")
+
+    # sortByColumn
+    sort_by = _safe_str(c.get("SortByColumnName"))
+    if sort_by:
+        lines.append(f"\t\tsortByColumn: {sort_by}")
+
+    # Variation sub-blocks (nested under column at 2-tab level)
+    if not col_variations.empty:
+        for _, v in col_variations.iterrows():
+            lines.append("")
+            var_name = _safe_str(v.get("VariationName", "Variation"))
+            lines.append(f"\t\tvariation {var_name}")
+            if _safe_bool(v.get("IsDefault")):
+                lines.append("\t\t\tisDefault")
+            rel_name = _safe_str(v.get("RelationshipName"))
+            if rel_name:
+                lines.append(f"\t\t\trelationship: {rel_name}")
+            hier_name = _safe_str(v.get("DefaultHierarchyName"))
+            hier_table = _safe_str(v.get("HierarchyTableName"))
+            if hier_name and hier_table:
+                lines.append(
+                    f"\t\t\tdefaultHierarchy: "
+                    f"{tmdl_quote(hier_table)}.{tmdl_quote(hier_name)}"
+                )
+
+    # Annotations
+    for ann_name, ann_val in annotations:
+        lines.append("")
+        lines.append(f"\t\tannotation {ann_name} = {ann_val}")
+
+    lines.append("")  # blank line after column
+    return lines
+
+
+def _emit_hierarchy(hier_rows: pd.DataFrame, annotations: list) -> list:
+    """Generate TMDL lines for a single hierarchy block.
+
+    hier_rows: all rows for one hierarchy (one per level), sorted by Ordinal.
+    """
+    lines = []
+    first = hier_rows.iloc[0]
+    hier_name = _safe_str(first.get("HierarchyName", ""))
+    lines.append(f"\thierarchy {tmdl_quote(hier_name)}")
+
+    tag = _safe_str(first.get("HierarchyLineageTag"))
+    if tag:
+        lines.append(f"\t\tlineageTag: {tag}")
+
+    # Levels ordered by ordinal
+    for _, lvl in hier_rows.iterrows():
+        level_name = _safe_str(lvl.get("LevelName", ""))
+        if not level_name:
+            continue
+        lines.append("")
+        lines.append(f"\t\tlevel {tmdl_quote(level_name)}")
+        lvl_tag = _safe_str(lvl.get("LevelLineageTag"))
+        if lvl_tag:
+            lines.append(f"\t\t\tlineageTag: {lvl_tag}")
+        col_name = _safe_str(lvl.get("LevelColumnName"))
+        if col_name:
+            lines.append(f"\t\t\tcolumn: {col_name}")
+
+    # Annotations (e.g., TemplateId = DateHierarchy)
+    for ann_name, ann_val in annotations:
+        lines.append("")
+        lines.append(f"\t\tannotation {ann_name} = {ann_val}")
+
+    lines.append("")  # blank line after hierarchy
+    return lines
+
+
+def _emit_partition(p: pd.Series) -> list:
+    """Generate TMDL lines for a partition block."""
+    lines = []
+    part_type = _safe_int(p.get("Type"), 4)
+    part_name = _safe_str(p.get("PartitionName"))
+    query_def = _safe_str(p.get("QueryDefinition", ""))
+
+    # Partition type keyword
+    type_kw = "calculated" if part_type == 2 else "m"
+
+    # Generate a name if missing
+    if not part_name:
+        part_name = str(uuid.uuid4())
+
+    lines.append(f"\tpartition {part_name} = {type_kw}")
+
+    # Mode (default to import)
+    mode_val = _safe_int(p.get("Mode"), 0)
+    mode_str = "directQuery" if mode_val == 1 else "import"
+    lines.append(f"\t\tmode: {mode_str}")
+
+    # Source expression
+    if query_def:
+        qd_lines = query_def.split("\n")
+        if part_type == 2 or len(qd_lines) == 1:
+            # Single-line (calculated DAX or short M)
+            lines.append(f"\t\tsource = {qd_lines[0].strip()}")
+            # Remaining lines (rare for calculated, but handle gracefully)
+            for extra in qd_lines[1:]:
+                lines.append(f"\t\t\t{extra}")
+        else:
+            # Multi-line M expression — indent at 3 tabs
+            lines.append("\t\tsource =")
+            for ml in qd_lines:
+                lines.append(f"\t\t\t{ml}")
+
+    lines.append("")  # blank line after partition
+    return lines
+
+
+def generate_table_tmdl(
+    table_name: str,
+    table_props: dict,
+    measures_df: pd.DataFrame,
+    columns_df: pd.DataFrame,
+    hier_levels_df: pd.DataFrame,
+    variations_df: pd.DataFrame,
+    partitions_df: pd.DataFrame,
+    annotations_map: dict,
+) -> str:
+    """Assemble complete TMDL content for one table.
+
+    annotations_map has keys: 'table', 'columns', 'measures', 'hierarchies'
+    Each maps object ID → list of (name, value) tuples.
+    """
+    lines = []
+
+    # Table header
+    lines.append(f"table {tmdl_quote(table_name)}")
+
+    # Table-level flags
+    if table_props.get("IsHidden"):
+        lines.append("\tisHidden")
+    if table_props.get("IsPrivate"):
+        lines.append("\tisPrivate")
+    if table_props.get("ShowAsVariationsOnly"):
+        lines.append("\tshowAsVariationsOnly")
+
+    tag = table_props.get("LineageTag", "")
+    if tag:
+        lines.append(f"\tlineageTag: {tag}")
+
+    lines.append("")  # blank line after table header
+
+    # Measures
+    measure_annots = annotations_map.get("measures", {})
+    for _, m in measures_df.iterrows():
+        m_id = _safe_int(m.get("ID"))
+        annots = measure_annots.get(m_id, [])
+        lines.extend(_emit_measure(m, annots))
+
+    # Columns
+    col_annots = annotations_map.get("columns", {})
+    for _, c in columns_df.iterrows():
+        c_id = _safe_int(c.get("ID"))
+        # Get variations for this column
+        col_vars = pd.DataFrame()
+        if not variations_df.empty and "ColumnID" in variations_df.columns:
+            col_vars = variations_df[variations_df["ColumnID"] == c_id]
+        annots = col_annots.get(c_id, [])
+        lines.extend(_emit_column(c, col_vars, annots))
+
+    # Hierarchies
+    hier_annots = annotations_map.get("hierarchies", {})
+    if not hier_levels_df.empty and "HierarchyID" in hier_levels_df.columns:
+        for hier_id in hier_levels_df["HierarchyID"].unique():
+            hier_data = hier_levels_df[hier_levels_df["HierarchyID"] == hier_id]
+            annots = hier_annots.get(_safe_int(hier_id), [])
+            lines.extend(_emit_hierarchy(hier_data, annots))
+
+    # Partitions
+    for _, p in partitions_df.iterrows():
+        lines.extend(_emit_partition(p))
+
+    # Table-level annotations
+    table_annots = annotations_map.get("table", [])
+    for ann_name, ann_val in table_annots:
+        lines.append(f"\tannotation {ann_name} = {ann_val}")
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def generate_relationships_tmdl(rel_df: pd.DataFrame) -> str:
+    """Generate relationships.tmdl from a DataFrame of relationships."""
+    lines = []
+    for _, r in rel_df.iterrows():
+        # Relationship name (UUID) — use Name if available, else generate one
+        rel_name = _safe_str(r.get("RelName"))
+        if not rel_name:
+            rel_name = str(r.get("ID", uuid.uuid4()))
+        lines.append(f"relationship {rel_name}")
+
+        # Optional: joinOnDateBehavior (only emit datePartOnly)
+        jodb = _safe_int(r.get("JoinOnDateBehavior"))
+        if jodb == 2:
+            lines.append("\tjoinOnDateBehavior: datePartOnly")
+
+        # Optional: crossFilteringBehavior (only emit bothDirections)
+        cfb = _safe_int(r.get("CrossFilteringBehavior"))
+        if cfb == 2:
+            lines.append("\tcrossFilteringBehavior: bothDirections")
+
+        # Optional: isActive (only emit when false)
+        is_active = r.get("IsActive")
+        if is_active is not None and not _safe_bool(is_active):
+            lines.append("\tisActive: false")
+
+        # fromColumn and toColumn
+        from_table = _safe_str(r.get("FromTableName"))
+        from_col = _safe_str(r.get("FromColumnName"))
+        to_table = _safe_str(r.get("ToTableName"))
+        to_col = _safe_str(r.get("ToColumnName"))
+        if from_table and from_col:
+            lines.append(f"\tfromColumn: {_tmdl_col_ref(from_table, from_col)}")
+        if to_table and to_col:
+            lines.append(f"\ttoColumn: {_tmdl_col_ref(to_table, to_col)}")
+
+        lines.append("")  # blank line between relationships
+
+    return "\n".join(lines) + "\n" if lines else ""
+
+
+def generate_role_tmdl(role_name: str, permissions_df: pd.DataFrame) -> str:
+    """Generate a role TMDL file from role name + table permissions."""
+    lines = []
+    lines.append(f"role {tmdl_quote(role_name)}")
+
+    # Optional: role description (from first row)
+    if "RoleDescription" in permissions_df.columns:
+        desc = _safe_str(permissions_df.iloc[0].get("RoleDescription"))
+        if desc:
+            lines.append(f"\tdescription: {desc}")
+
+    lines.append("")
+
+    for _, perm in permissions_df.iterrows():
+        table_name = _safe_str(perm.get("TableName", ""))
+        filter_expr = _safe_str(perm.get("FilterExpression", ""))
+        if table_name:
+            lines.append(f"\ttablePermission {tmdl_quote(table_name)}")
+            if filter_expr:
+                filter_lines = filter_expr.strip().split("\n")
+                if len(filter_lines) == 1:
+                    lines.append(
+                        f"\t\tfilterExpression = {filter_lines[0].strip()}"
+                    )
+                else:
+                    lines.append("\t\tfilterExpression =")
+                    lines.append("\t\t\t```")
+                    for fl in filter_lines:
+                        lines.append(f"\t\t\t{fl}")
+                    lines.append("\t\t\t```")
+            lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Main semantic model extraction from SQLite
+# ---------------------------------------------------------------------------
+
+
+def extract_semantic_model_from_sqlite(pbix_path: str, model_dir: Path) -> bool:
+    """Extract full semantic model from .pbix via pbixray's internal SQLite.
+
+    Uses PbixUnpacker + SQLiteHandler for single-decompression-pass extraction
+    with full access to every TOM table (columns, measures, relationships,
+    hierarchies, variations, partitions, RLS roles, annotations).
 
     Returns True if extraction succeeded, False otherwise.
     """
@@ -846,176 +1514,172 @@ def extract_semantic_model_pbixray(pbix_path: str, model_dir: Path) -> bool:
         return False
 
     try:
-        pbix = PBIXRay(pbix_path)
+        # Step 1: Decompress and open SQLite
+        unpacker = PbixUnpacker(pbix_path)
+        data_model = unpacker.data_model
+        sqlite_bytes = get_data_slice(data_model, "metadata.sqlitedb")
+        handler = SQLiteHandler(sqlite_bytes)
     except Exception as e:
-        logger.warning(f"pbixray failed to open {pbix_path}: {e}")
+        logger.warning(f"pbixray: failed to open SQLite from {pbix_path}: {e}")
         return False
 
-    tables_dir = model_dir / "tables"
-    tables_dir.mkdir(parents=True, exist_ok=True)
-
-    # Collect measures by table
-    measures_by_table: dict[str, list[tuple[str, str]]] = {}
     try:
-        dax_measures = pbix.dax_measures
-        if dax_measures is not None and not dax_measures.empty:
-            for _, row in dax_measures.iterrows():
-                table_name = str(row.get("TableName", row.get("tableName", "")))
-                measure_name = str(row.get("Name", row.get("name", "")))
-                expression = str(row.get("Expression", row.get("expression", "")))
-                if table_name and measure_name and expression:
-                    measures_by_table.setdefault(table_name, []).append(
-                        (measure_name, expression)
+        # Step 2: Query all metadata
+        tables_df = query_tables(handler)
+        if tables_df.empty:
+            logger.warning("pbixray: no tables found in metadata")
+            return False
+
+        table_ids = tables_df["ID"].tolist()
+
+        # Build table name lookup
+        table_id_to_name = dict(zip(tables_df["ID"], tables_df["Name"]))
+
+        columns_df = query_columns(handler, table_ids)
+        measures_df = query_measures(handler, table_ids)
+        hier_levels_df = query_hierarchies_and_levels(handler, table_ids)
+        variations_df = query_variations(handler, table_ids)
+        relationships_df = query_relationships(handler)
+        partitions_df = query_partitions(handler, table_ids)
+        rls_df = query_rls_roles(handler)
+        annotations_df = query_annotations(handler)
+
+        logger.info(
+            f"pbixray: queried {len(tables_df)} tables, "
+            f"{len(columns_df)} columns, {len(measures_df)} measures, "
+            f"{len(relationships_df)} relationships"
+        )
+
+        # Step 3: Build annotation lookup {ObjectType: {ObjectID: [(name, val)]}}
+        annot_lookup: dict[int, dict[int, list]] = {}
+        if not annotations_df.empty and "ObjectType" in annotations_df.columns:
+            for _, ann in annotations_df.iterrows():
+                otype = _safe_int(ann.get("ObjectType"))
+                oid = _safe_int(ann.get("ObjectID"))
+                if otype is not None and oid is not None:
+                    annot_lookup.setdefault(otype, {}).setdefault(oid, []).append(
+                        (_safe_str(ann["Name"]), _safe_str(ann["Value"]))
                     )
-            logger.info(
-                f"pbixray: extracted {len(dax_measures)} measures from {len(measures_by_table)} tables"
+
+        # Step 4: Generate TMDL files per table
+        tables_dir = model_dir / "tables"
+        tables_dir.mkdir(parents=True, exist_ok=True)
+
+        for _, tbl in tables_df.iterrows():
+            tbl_id = int(tbl["ID"])
+            tbl_name = str(tbl["Name"])
+
+            # Table properties
+            tbl_props = {
+                "IsHidden": _safe_bool(tbl.get("IsHidden")),
+                "IsPrivate": False,  # Not directly queryable; inferred from table name
+                "ShowAsVariationsOnly": _safe_bool(tbl.get("ShowAsVariationsOnly")),
+                "LineageTag": _safe_str(tbl.get("LineageTag")),
+            }
+            # Heuristic: DateTableTemplate tables are private
+            if "DateTableTemplate" in tbl_name:
+                tbl_props["IsPrivate"] = True
+
+            # Filter data for this table
+            t_measures = measures_df[measures_df["TableID"] == tbl_id] if not measures_df.empty else pd.DataFrame()
+            t_columns = columns_df[columns_df["TableID"] == tbl_id] if not columns_df.empty else pd.DataFrame()
+            t_hier = pd.DataFrame()
+            if not hier_levels_df.empty and "TableID" in hier_levels_df.columns:
+                t_hier = hier_levels_df[hier_levels_df["TableID"] == tbl_id]
+            t_vars = pd.DataFrame()
+            if not variations_df.empty and "TableID" in variations_df.columns:
+                t_vars = variations_df[variations_df["TableID"] == tbl_id]
+            t_parts = partitions_df[partitions_df["TableID"] == tbl_id] if not partitions_df.empty else pd.DataFrame()
+
+            # Annotations map for this table
+            annot_map = {
+                "table": annot_lookup.get(ANNOT_TABLE, {}).get(tbl_id, []),
+                "columns": annot_lookup.get(ANNOT_COLUMN, {}),
+                "measures": annot_lookup.get(ANNOT_MEASURE, {}),
+                "hierarchies": annot_lookup.get(ANNOT_HIERARCHY, {}),
+            }
+
+            tmdl_content = generate_table_tmdl(
+                tbl_name, tbl_props,
+                t_measures, t_columns, t_hier, t_vars, t_parts,
+                annot_map,
             )
-    except Exception as e:
-        logger.warning(f"pbixray: could not extract DAX measures: {e}")
 
-    # Collect columns by table
-    columns_by_table: dict[str, list[tuple[str, str]]] = {}
-    try:
-        schema = pbix.schema
-        if schema is not None and not schema.empty:
-            for _, row in schema.iterrows():
-                table_name = str(row.get("TableName", row.get("tableName", "")))
-                col_name = str(row.get("ColumnName", row.get("columnName", "")))
-                dtype = str(
-                    row.get(
-                        "DataType", row.get("dataType", row.get("dtype", "string"))
-                    )
+            safe_name = sanitize_filename(tbl_name)
+            tmdl_path = tables_dir / f"{safe_name}.tmdl"
+            tmdl_path.write_text(tmdl_content, encoding="utf-8")
+
+        logger.info(f"pbixray: wrote {len(tables_df)} table TMDL files")
+
+        # Step 5: Generate relationships.tmdl and relationships.json
+        if not relationships_df.empty:
+            rel_content = generate_relationships_tmdl(relationships_df)
+            (model_dir / "relationships.tmdl").write_text(rel_content, encoding="utf-8")
+
+            # Also write relationships.json for tmdl_parser.py compatibility
+            rel_json = []
+            for _, r in relationships_df.iterrows():
+                cfb = _safe_int(r.get("CrossFilteringBehavior"))
+                cf_str = "bothDirections" if cfb == 2 else ""
+                rel_json.append({
+                    "fromTable": _safe_str(r.get("FromTableName", "")),
+                    "fromColumn": _safe_str(r.get("FromColumnName", "")),
+                    "toTable": _safe_str(r.get("ToTableName", "")),
+                    "toColumn": _safe_str(r.get("ToColumnName", "")),
+                    "isActive": bool(_safe_bool(r.get("IsActive"))),
+                    "cardinality": "",
+                    "crossFiltering": cf_str,
+                })
+            (model_dir / "relationships.json").write_text(
+                json.dumps(rel_json, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            logger.info(f"pbixray: wrote {len(relationships_df)} relationships")
+
+        # Step 6: Generate role TMDL files
+        if not rls_df.empty:
+            roles_dir = model_dir / "roles"
+            roles_dir.mkdir(parents=True, exist_ok=True)
+            for role_name in rls_df["RoleName"].unique():
+                role_perms = rls_df[rls_df["RoleName"] == role_name]
+                role_content = generate_role_tmdl(str(role_name), role_perms)
+                safe_role = sanitize_filename(str(role_name))
+                (roles_dir / f"{safe_role}.tmdl").write_text(
+                    role_content, encoding="utf-8"
                 )
-                if table_name and col_name:
-                    columns_by_table.setdefault(table_name, []).append(
-                        (col_name, map_data_type(dtype))
-                    )
             logger.info(
-                f"pbixray: extracted columns from {len(columns_by_table)} tables"
+                f"pbixray: wrote {len(rls_df['RoleName'].unique())} role files"
             )
-    except Exception as e:
-        logger.warning(f"pbixray: could not extract schema: {e}")
 
-    # Extract relationships
-    relationships = []
-    try:
-        rel_data = pbix.relationships
-        if rel_data is not None and not rel_data.empty:
-            for _, row in rel_data.iterrows():
-                rel = {
-                    "fromTable": str(row.get("FromTableName", row.get("fromTableName", ""))),
-                    "fromColumn": str(row.get("FromColumnName", row.get("fromColumnName", ""))),
-                    "toTable": str(row.get("ToTableName", row.get("toTableName", ""))),
-                    "toColumn": str(row.get("ToColumnName", row.get("toColumnName", ""))),
-                    "isActive": bool(row.get("IsActive", row.get("isActive", True))),
-                    "cardinality": str(row.get("Cardinality", row.get("cardinality", ""))),
-                    "crossFiltering": str(row.get("CrossFilteringBehavior", row.get("crossFilteringBehavior", ""))),
-                }
-                if rel["fromTable"] and rel["toTable"]:
-                    relationships.append(rel)
-            logger.info(f"pbixray: extracted {len(relationships)} relationships")
-    except Exception as e:
-        logger.warning(f"pbixray: could not extract relationships: {e}")
+        # Step 7: Generate model.tmdl and database.tmdl stubs
+        model_lines = ["model Model", "\tculture: en-US",
+                        "\tdefaultPowerBIDataSourceVersion: powerBI_V3",
+                        "\tsourceQueryCulture: en-US", ""]
+        # Add ref table entries
+        for _, tbl in tables_df.iterrows():
+            model_lines.append(f"ref table {tmdl_quote(str(tbl['Name']))}")
+        model_lines.append("")
+        (model_dir / "model.tmdl").write_text(
+            "\n".join(model_lines) + "\n", encoding="utf-8"
+        )
 
-    if not measures_by_table and not columns_by_table:
-        logger.warning("pbixray: no measures or columns extracted")
+        (model_dir / "database.tmdl").write_text(
+            "database\n\tcompatibilityLevel: 1600\n", encoding="utf-8"
+        )
+
+        return True
+
+    except Exception as e:
+        logger.warning(f"pbixray: semantic model extraction failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
-
-    # Merge all table names
-    all_tables = set(measures_by_table.keys()) | set(columns_by_table.keys())
-
-    for table_name in sorted(all_tables):
-        tmdl_content = _build_tmdl_file(
-            table_name,
-            measures_by_table.get(table_name, []),
-            columns_by_table.get(table_name, []),
-        )
-        # Sanitize filename — TMDL files use the table name as filename
-        safe_name = sanitize_filename(table_name)
-        tmdl_path = tables_dir / f"{safe_name}.tmdl"
-        tmdl_path.write_text(tmdl_content, encoding="utf-8")
-
-    # Write minimal model.tmdl stub
-    (model_dir / "model.tmdl").write_text(
-        "model Model\n\tculture: en-US\n", encoding="utf-8"
-    )
-
-    # Write minimal database.tmdl stub
-    (model_dir / "database.tmdl").write_text(
-        "database Database\n", encoding="utf-8"
-    )
-
-    # Write .source marker so downstream code knows types are unreliable
-    (model_dir / ".source").write_text("pbixray", encoding="utf-8")
-
-    # Write relationships.json if any were extracted
-    if relationships:
-        import json as _json
-        (model_dir / "relationships.json").write_text(
-            _json.dumps(relationships, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-
-    logger.info(
-        f"pbixray: wrote {len(all_tables)} TMDL files to {tables_dir}"
-    )
-
-    # Log known pbixray limitations
-    logger.warning(
-        "pbixray limitations: column data types are ALL reported as 'string' "
-        "(unreliable). Calculated columns/tables may be missing. "
-        "The pipeline will use CONVERT() for numeric aggregations to work around this."
-    )
-
-    return True
-
-
-def _build_tmdl_file(
-    table_name: str,
-    measures: list[tuple[str, str]],
-    columns: list[tuple[str, str]],
-) -> str:
-    """Build a synthetic TMDL file content matching tmdl_parser.py regex patterns.
-
-    Format:
-        table <TableName>
-        \tmeasure '<MeasureName>' = <expression>
-        \tcolumn <ColumnName>
-        \t\tdataType: <type>
-    """
-    # Quote table name if it contains spaces
-    quoted_table = f"'{table_name}'" if " " in table_name else table_name
-    lines = [f"table {quoted_table}"]
-
-    for measure_name, expression in measures:
-        # Quote measure name (tmdl_parser.py expects optional quotes)
-        quoted_measure = (
-            f"'{measure_name}'" if " " in measure_name else measure_name
-        )
-        # Handle multi-line expressions: indent continuation lines
-        expr_lines = expression.strip().split("\n")
-        if len(expr_lines) == 1:
-            lines.append(f"\tmeasure {quoted_measure} = {expr_lines[0].strip()}")
-        else:
-            lines.append(f"\tmeasure {quoted_measure} =")
-            lines.append("\t\t```")
-            for el in expr_lines:
-                lines.append(f"\t\t{el}")
-            lines.append("\t\t```")
-        # Add a lineageTag placeholder so tmdl_parser stops correctly
-        lines.append(f"\t\tlineageTag: auto-generated")
-        lines.append("")
-
-    for col_name, data_type in columns:
-        quoted_col = f"'{col_name}'" if " " in col_name else col_name
-        lines.append(f"\tcolumn {quoted_col}")
-        lines.append(f"\t\tdataType: {data_type}")
-        lines.append(f"\t\tlineageTag: auto-generated")
-        lines.append(f"\t\tsummarizeBy: none")
-        lines.append(f"\t\tsourceColumn: {col_name}")
-        lines.append("")
-
-    return "\n".join(lines) + "\n"
+    finally:
+        try:
+            handler.close_connection()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -1161,9 +1825,9 @@ def extract_pbix(
     else:
         # Try pbixray extraction
         model_dir = output_base / f"{report_name}.SemanticModel" / "definition"
-        if extract_semantic_model_pbixray(pbix_path, model_dir):
+        if extract_semantic_model_from_sqlite(pbix_path, model_dir):
             result.model_root = str(model_dir)
-            result.semantic_model_source = "pbixray"
+            result.semantic_model_source = "pbixray-sqlite"
         else:
             if HAS_PBIXRAY:
                 logger.warning(
