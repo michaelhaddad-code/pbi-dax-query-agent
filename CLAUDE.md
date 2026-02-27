@@ -23,8 +23,8 @@ I reverse-engineer Power BI visuals into executable DAX queries — and can gene
 7. **Then you choose:** pick another visual, switch pages, generate a chart, or load a different report — I keep everything in memory so you don't have to re-parse
 
 **To get started, give me one of these:**
-- **A `.pbix` file** — I'll extract everything automatically
-- **Two PBIP paths** — the `definition/` folder inside your `.Report/` directory + the `definition/` folder inside your `.SemanticModel/` directory
+- **A `.pbix` file** — I'll extract everything automatically *(note: any TMDL edits or cleanup will apply to the extracted copies I create, not your live semantic model — see below)*
+- **Two PBIP paths** — the `definition/` folder inside your `.Report/` directory + the `definition/` folder inside your `.SemanticModel/` directory *(recommended for model cleanup workflows)*
 
 *`.pbix` measure extraction requires `pbixray` (which needs a C compiler). If that's not set up on your machine, use the PBIP option instead — File → Save As → `.pbip` in Power BI Desktop.*
 
@@ -62,9 +62,15 @@ python skills/pbix_extractor.py "<path_to_pbix>" --output "data/"
 2. **Stop and report what was extracted.** Tell the user:
 > "Extracted **[Report Name]** — **X pages**, **Y data visuals**, **Z bookmarks**. Semantic model: [extracted N measures / not available]."
 
-3. **Then run `extract_metadata.py`** on the extracted PBIP structure using the returned `report_root` and `model_root` paths.
+3. **Show the `.pbix` provenance warning.** Always include this after extraction:
+> **Note:** Your input was a `.pbix` file. The TMDL files I'm working with are the extracted copies I created — not your live semantic model. DAX query generation works perfectly on these copies, but if you later want to clean up or edit the model itself, you'd need to:
+> 1. Export your report as PBIP from Power BI Desktop (File → Save As → `.pbip`)
+> 2. Re-run the pipeline against that real PBIP folder
+> 3. Reopen the cleaned PBIP in Power BI Desktop and republish
 
-4. Report the metadata results and move to Step 2 (page listing).
+4. **Then run `extract_metadata.py`** on the extracted PBIP structure using the returned `report_root` and `model_root` paths.
+
+5. Report the metadata results and move to Step 2 (page listing).
 
 **Do NOT barrel through all steps silently.** Each step should have visible output so the user knows what's happening.
 
@@ -181,6 +187,16 @@ The pipeline has **NO access to actual data values**. When the user asks for a c
 - **Always caveat uncertain values.** Tell the user: "I'm using `"Espinoza Brynn"` but the actual value in the data might differ (e.g., comma-separated, different casing). Can you confirm the exact value?"
 - **When ambiguous, ask.** If the user says "filter by espinoza" and the visual has both Store Name and Buyer, ask which field they mean.
 
+## `.pbix` Provenance Warning — TMDL Cleanup
+When any TMDL editing or cleanup feature is offered (e.g., renaming measures, reorganizing folders, removing unused columns), **always check whether the current session was loaded from a `.pbix` file**. If it was, show this warning **before** the user commits to cleanup:
+
+> **Warning:** Your input was a `.pbix` file. The TMDL files I'd be editing are the extracted copies I created — not your live semantic model. TMDL cleanup here is useful as a **preview** of what would change, but to actually clean up your model you'd need to:
+> 1. **Export your report as PBIP** from Power BI Desktop (File → Save As → `.pbip`)
+> 2. **Re-run the pipeline** (or just the cleanup step) against that real PBIP folder
+> 3. **Reopen the cleaned PBIP** in Power BI Desktop and republish
+
+**How to detect `.pbix` provenance:** Check `semantic_model_source` in the `PbixExtractResult` — if it's `"pbixray-sqlite"`, the model was extracted from a `.pbix` file. If `"user-provided"` or if running against native PBIP paths, no warning is needed.
+
 ## Session Persistence
 - Once a report is parsed in Step 1, **keep the metadata loaded** for the entire session
 - Do NOT re-run `extract_metadata.py` when the user switches pages or visuals — just navigate the already-parsed data
@@ -196,7 +212,7 @@ This is the **data retrieval layer** for Lara's AI-Powered Slide Generation proj
 
 ### Bigger Picture: How This Fits
 ```
-  .pbix file ---> [Skill 0] pbix_extractor.py ---> PBIP folders (+ synthetic TMDL via pbixray)
+  .pbix file ---> [Skill 0] pbix_extractor.py ---> PBIP folders (+ full TMDL via pbixray SQLite)
                                                         |
   PBIP files -----> [Skill 1] extract_metadata.py ------+--> 8-col metadata Excel --+--> [Skill 2] dax_query_builder.py --> DAX queries
                                                         ^                           |
@@ -220,7 +236,7 @@ The pipeline uses fully automated, code-based DAX construction. No AI in the loo
 - regex (TMDL file parsing, DAX formula analysis)
 - plotly, kaleido (chart rendering for Skill 3 PNG mode/fallback)
 - python-pptx (native PowerPoint chart generation for Skill 3 PPTX mode)
-- pbixray (optional — .pbix semantic model extraction for Skill 0)
+- pbixray (optional — .pbix semantic model extraction via internal SQLite for Skill 0)
 - Power BI Desktop PBIP format (JSON + TMDL files) and .pbix format (ZIP)
 
 ## Project Structure
@@ -245,7 +261,7 @@ powerpointTask/
 ## Skill Details
 
 ### Skill 0: pbix_extractor.py
-Converts a `.pbix` ZIP archive into the PBIP folder structure that `extract_metadata.py` consumes. Report structure (pages, visuals, filters, bookmarks) is extracted with pure Python. Semantic model (measures, columns) requires the optional `pbixray` package.
+Converts a `.pbix` ZIP archive into the PBIP folder structure that `extract_metadata.py` consumes. Report structure (pages, visuals, filters, bookmarks) is extracted with pure Python. Semantic model extraction (tables, columns, measures, relationships, hierarchies, variations, partitions, RLS roles, annotations) uses pbixray's `PbixUnpacker` + `SQLiteHandler` for direct access to the internal metadata SQLite database.
 
 - **Input:**
   - Positional: `pbix_path` — path to the .pbix file
@@ -253,14 +269,24 @@ Converts a `.pbix` ZIP archive into the PBIP folder structure that `extract_meta
   - `--model-root` — optional path to existing PBIP semantic model (skips pbixray)
 - **Output:** PBIP folder structure:
   - `<ReportName>.Report/definition/` — report.json, pages/, visuals/, bookmarks/
-  - `<ReportName>.SemanticModel/definition/` — synthetic TMDL files (if pbixray available)
-- **Returns (module API):** `PbixExtractResult` dataclass with `report_root`, `model_root`, `report_name`, page/visual/bookmark counts, `semantic_model_source` ("pbixray" | "user-provided" | "none")
+  - `<ReportName>.SemanticModel/definition/` — full TMDL files with correct data types (if pbixray available)
+    - `tables/*.tmdl` — measures, columns (with dataType, summarizeBy, sortByColumn), hierarchies, variations, partitions, annotations
+    - `relationships.tmdl` — relationship definitions (joinOnDateBehavior, crossFilteringBehavior)
+    - `relationships.json` — same data in JSON format for `tmdl_parser.py` compatibility
+    - `roles/*.tmdl` — RLS role definitions with table permissions (if present)
+    - `model.tmdl` — model stub with culture, ref table entries
+    - `database.tmdl` — compatibility level stub
+  - **No `.source` marker file** — `tmdl_parser.py` defaults to `source = "pbip"` (reliable types), which is correct for the SQLite-extracted data
+- **Returns (module API):** `PbixExtractResult` dataclass with `report_root`, `model_root`, `report_name`, page/visual/bookmark counts, `semantic_model_source` ("pbixray-sqlite" | "user-provided" | "none")
 - **Key logic:**
   - Reads `Report/Layout` from ZIP (UTF-16LE encoded)
   - Parses stringified JSON fields (`config`, `filters`, `query`) from each visual container
   - Handles `singleVisual` and `singleVisualGroup` (grouped visuals)
   - Extracts bookmarks from `config.bookmarks` or top-level `bookmarks` key
-  - Generates synthetic TMDL files from `pbixray.PBIXRay.dax_measures` and `.schema`
+  - SQLite extraction via `PbixUnpacker` → `get_data_slice("metadata.sqlitedb")` → `SQLiteHandler`
+  - Progressive SQL fallback tiers for columns/relationships (handles different PBIX versions)
+  - Column data types extracted from TOM `ExplicitDataType` codes (correct types, not all `string`)
+  - Safe value handling (`_safe_int`, `_safe_str`, `_safe_bool`) for NaN/null values
 - **Without pbixray:** Extracts full report structure (pages, visuals, filters, bookmarks) but measure formulas and column metadata are missing. DAX queries are still generated but without formula traceability.
 
 ```bash
@@ -410,14 +436,15 @@ python skills/chart_generator.py \
 11. **Relative date filters: keep explanations simple** — When a filter uses relative date offsets that can't be resolved statically, give a one-line disclaimer (e.g., "This report uses a relative date filter, so the year values `{2025, 2024}` may differ at runtime."). Do NOT explain PBI internals, offset encoding, or how relative dates work unless the user specifically asks.
 
 ## Validation Status
-The pipeline has been manually cross-checked against three reports:
+The pipeline has been manually cross-checked against four reports:
 - **Revenue Opportunities** — 11/11 visuals, 30/30 metadata rows. Validated against manual reference files in `data/manual/`.
 - **Store Sales** — 17/17 visuals across 5 pages. 2 bookmarks, 8 bookmark DAX queries. Validated by running DAX queries against the Semantic Model.
 - **AI Sample** — 10 visuals across 3 pages. 17 bookmarks. Bookmarks referencing deleted pages produce filters but 0 matched visuals (expected).
+- **Regional Sales Sample** — 55 data visuals across 11 pages, 2 bookmarks. Extracted from `.pbix` via SQLite-based extractor. Correct column data types (int64, double, dateTime, boolean, string). Zero SUMX/CONVERT workarounds in generated DAX.
 
 ## Known Limitations
-- **`.pbix` semantic model extraction requires `pbixray`** — without it, report structure (pages, visuals, filters, bookmarks) is fully extracted but measure formulas and column metadata are missing. Install with `pip install pbixray`.
-- **`pbixray` schema may be incomplete** — calculated columns and calculated tables may not appear in `pbixray.schema` output. Physical columns and DAX measures are reliably extracted.
+- **`.pbix` semantic model extraction requires `pbixray`** — without it, report structure (pages, visuals, filters, bookmarks) is fully extracted but measure formulas and column metadata are missing. Install with `pip install pbixray` (requires a C compiler).
+- **SQLite column query fallback** — some older PBIX files may lack `SortByColumn` or `IsNameInferred` columns in the SQLite metadata; the extractor uses progressive fallback tiers (Tier 1→4) to handle this gracefully.
 - **No access to actual data values** — metadata contains field names and tables only, not row-level data. Custom filter values cannot be verified for exact spelling/casing.
 - **Bookmark filters only** — filter values are extracted from bookmarks, not from the visual's own persisted filter state. If a report has no bookmarks, no filter values are available.
 - **Relative date offsets** (e.g., `-6L` months back) cannot be resolved statically and appear as comments in DAX.
