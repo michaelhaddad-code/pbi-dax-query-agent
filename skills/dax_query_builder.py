@@ -17,7 +17,7 @@ import sys
 import os
 import re
 import argparse
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 try:
     import openpyxl
@@ -53,6 +53,11 @@ def classify_field(usage):
     if "filter (measure)" in u:
         return "measure"
 
+    # Matrix column-axis fields (must check before "visual column" since
+    # "visual matrix column" contains "visual column")
+    if "visual matrix column" in u:
+        return "matrix_column"
+
     # Check for grouping roles (Visual Row, Visual Column, Visual Group)
     if any(k in u for k in ["visual row", "visual column", "visual group"]):
         return "grouping"
@@ -82,6 +87,7 @@ def classify_visual_fields(fields):
     measures = []
     filters = []
     slicer_fields = []
+    matrix_columns = []
 
     for f in fields:
         role = classify_field(f["usage"])
@@ -89,7 +95,7 @@ def classify_visual_fields(fields):
         # Implicit measures (drag-and-drop aggregation) should be treated as measures
         # even if their usage label would normally classify them as grouping (e.g.
         # Table "Visual Column" with SUM aggregation)
-        if f.get("agg_func") and role in ("grouping", "other"):
+        if f.get("agg_func") and role in ("grouping", "matrix_column", "other"):
             role = "measure"
 
         if role == "grouping":
@@ -102,8 +108,10 @@ def classify_visual_fields(fields):
             slicer_fields.append(f)
         elif role == "page_filter":
             filters.append(f)
+        elif role == "matrix_column":
+            matrix_columns.append(f)
 
-    return grouping, measures, filters, slicer_fields
+    return grouping, measures, filters, slicer_fields, matrix_columns
 
 
 # =============================================================================
@@ -192,12 +200,14 @@ def _measure_expression(m, model=None):
 # CORE LOGIC: DAX Query Generation
 # =============================================================================
 
-def build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model=None):
+def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
+                    model=None, matrix_columns=None):
     """
     Build a DAX query string based on the classified fields.
 
     Args:
         model: Optional SemanticModel for column type lookup (implicit measure conversion)
+        matrix_columns: Optional list of matrix column-axis fields
 
     Returns: (pattern_name, dax_query_string)
     """
@@ -256,6 +266,14 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type, mod
             dax += "\n    )\n)"
         return "Pattern 2: Columns Only", dax
 
+    # ----- Pattern 3M: Matrix Summary (row groupings + measures, no column-axis) -----
+    if matrix_columns and grouping and measures:
+        cols = [f"    '{g['table_sm']}'[{g['col_sm']}]" for g in grouping]
+        pairs = [f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in measures]
+        all_args = cols + pairs
+        dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+        return "Pattern 3M: Matrix Summary", dax
+
     # ----- Pattern 3: Columns + Measures (Most Visuals) -----
     if grouping and measures:
         cols = [f"    '{g['table_sm']}'[{g['col_sm']}]" for g in grouping]
@@ -265,6 +283,204 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type, mod
         return "Pattern 3: Columns + Measures", dax
 
     return "Unknown", "-- Could not determine DAX pattern for this visual"
+
+
+def build_matrix_values_query(matrix_columns):
+    """Generate a preflight VALUES() query for matrix column-axis fields.
+
+    Returns the DAX string that retrieves distinct values for the column-axis field(s).
+    """
+    if len(matrix_columns) == 1:
+        mc = matrix_columns[0]
+        return f"EVALUATE\nVALUES('{mc['table_sm']}'[{mc['col_sm']}])"
+    # Multiple column-axis fields (rare) — return one query per field
+    queries = []
+    for mc in matrix_columns:
+        queries.append(f"EVALUATE\nVALUES('{mc['table_sm']}'[{mc['col_sm']}])")
+    return "\n\n".join(queries)
+
+
+# =============================================================================
+# FILTER LINEAGE: Auto-detect flat measures for Matrix pivot
+# =============================================================================
+
+def build_filter_graph(relationships) -> dict:
+    """Build a directed filter-propagation graph from model relationships.
+
+    In PBI, the "to" side (PK/dimension) filters the "from" side (FK/fact)
+    by default. With crossFilteringBehavior=bothDirections, the reverse
+    edge is added too. Inactive relationships are skipped.
+
+    Args:
+        relationships: list of TmdlRelationship objects
+
+    Returns:
+        dict mapping table name (str) → set of table names it can directly filter
+    """
+    graph = {}
+    for rel in relationships:
+        if not rel.is_active:
+            continue
+
+        # Default direction: to_table (dimension/PK) filters from_table (fact/FK)
+        graph.setdefault(rel.to_table, set()).add(rel.from_table)
+
+        # Bidirectional: add reverse edge
+        if rel.cross_filtering == "bothDirections":
+            graph.setdefault(rel.from_table, set()).add(rel.to_table)
+
+    return graph
+
+
+def can_filter_reach(graph, source_table, target_table) -> bool:
+    """BFS through the filter graph to check if source_table can filter target_table.
+
+    Args:
+        graph: dict from build_filter_graph()
+        source_table: table that provides the filter (e.g. column-axis table)
+        target_table: table that needs to be reachable (e.g. measure's home table)
+
+    Returns:
+        True if target_table is reachable from source_table via filter propagation
+    """
+    if source_table == target_table:
+        return True
+
+    visited = set()
+    queue = deque([source_table])
+    visited.add(source_table)
+
+    while queue:
+        current = queue.popleft()
+        for neighbor in graph.get(current, set()):
+            if neighbor == target_table:
+                return True
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    return False
+
+
+def auto_detect_flat_measures(measures, matrix_columns, model) -> list:
+    """Detect measures that can't be filtered by the matrix column-axis table.
+
+    Uses the semantic model's relationships to build a filter graph and checks
+    whether each measure's home table is reachable from the column-axis table.
+    Measures with no reachable path are returned as "flat" — they should be
+    included in the pivot query without CALCULATE wrapping.
+
+    Args:
+        measures: list of deduplicated measure field dicts (with ui_name, table_sm)
+        matrix_columns: list of matrix column-axis field dicts (with table_sm)
+        model: SemanticModel with relationships
+
+    Returns:
+        list of measure ui_name strings that should be flat (unreachable)
+    """
+    if not model or not model.relationships or not matrix_columns:
+        return []
+
+    graph = build_filter_graph(model.relationships)
+    column_axis_table = matrix_columns[0]["table_sm"]
+
+    flat = []
+    for m in measures:
+        measure_table = m.get("table_sm", "")
+        if not measure_table:
+            continue
+        if not can_filter_reach(graph, column_axis_table, measure_table):
+            flat.append(m["ui_name"])
+
+    return flat
+
+
+def build_matrix_pivot_query(grouping, measures, matrix_columns, column_values,
+                             model=None, flat_measures=None):
+    """Generate a single pivoted CALCULATE query for a Matrix visual.
+
+    For each pivot measure x each column value, creates a named CALCULATE expression
+    that filters the column-axis field to that value. Flat measures (unrelated to the
+    column-axis table) are included as-is without CALCULATE wrapping.
+
+    When flat_measures is None and model has relationships, auto-detects which measures
+    are unreachable from the column-axis table via filter lineage and treats them as flat.
+
+    Args:
+        grouping: List of row-axis grouping field dicts
+        measures: List of measure field dicts
+        matrix_columns: List of matrix column-axis field dicts
+        column_values: List of distinct values for the column-axis field
+        model: Optional SemanticModel for implicit measure resolution and lineage
+        flat_measures: Optional list of measure ui_names that should NOT be pivoted
+            (included once without CALCULATE wrapping). Use when a measure is unrelated
+            to the column-axis table and returns BLANK when filtered by it.
+            When None and model has relationships, auto-detection is used.
+            Pass an explicit empty list [] to disable auto-detection and pivot all.
+
+    Returns: (pattern_name, dax_query_string) or (pattern_name, dax_query_string, auto_flat)
+        When auto-detection runs, returns a 3-tuple with the auto-detected flat measure names.
+    """
+    auto_flat = []
+
+    # Deduplicate measures (same logic as build_dax_query)
+    seen_measures = set()
+    unique_measures = []
+    for m in measures:
+        if m['ui_name'] not in seen_measures:
+            seen_measures.add(m['ui_name'])
+            m = dict(m)
+            m['measure_name'] = m['col_sm'].split(',')[0].strip()
+            unique_measures.append(m)
+    measures = unique_measures
+
+    # Auto-detect flat measures via filter lineage when not explicitly provided
+    if flat_measures is None and model and hasattr(model, 'relationships') and model.relationships:
+        auto_flat = auto_detect_flat_measures(measures, matrix_columns, model)
+        flat_names = set(auto_flat)
+    else:
+        flat_names = set(flat_measures or [])
+
+    # Split into pivot vs flat
+    pivot_measures = [m for m in measures if m['ui_name'] not in flat_names]
+    flat_list = [m for m in measures if m['ui_name'] in flat_names]
+
+    # Row grouping columns
+    cols = [f"    '{g['table_sm']}'[{g['col_sm']}]" for g in grouping]
+
+    # Build CALCULATE expressions: one per (column_value, pivot_measure) pair
+    mc = matrix_columns[0]  # primary column-axis field
+    mc_ref = f"'{mc['table_sm']}'[{mc['col_sm']}]"
+
+    calc_parts = []
+    for val in column_values:
+        # Determine if value is numeric or string
+        is_numeric = False
+        try:
+            float(val)
+            is_numeric = True
+        except (ValueError, TypeError):
+            pass
+
+        filter_val = str(val) if is_numeric else f"\"{val}\""
+
+        for m in pivot_measures:
+            expr = _measure_expression(m, model)
+            label = f"{val} {m['ui_name']}"
+            calc_parts.append(
+                f"    \"{label}\", CALCULATE({expr}, {mc_ref} = {filter_val})"
+            )
+
+    # Flat measures: included once without CALCULATE
+    flat_parts = [
+        f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in flat_list
+    ]
+
+    all_args = cols + calc_parts + flat_parts
+    dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+    if auto_flat:
+        return "Pattern 3M: Matrix Pivot", dax, auto_flat
+    return "Pattern 3M: Matrix Pivot", dax
 
 
 def add_filter_comments(dax, filters):
@@ -495,11 +711,12 @@ def build_bookmark_queries(bookmarks, visuals, page_filters, model=None):
             fields = data["fields"]
 
             # Classify fields and build base DAX
-            grouping, measures, filters, slicer_fields = classify_visual_fields(fields)
+            grouping, measures, filters, slicer_fields, matrix_columns = classify_visual_fields(fields)
             if page_name in page_filters:
                 filters.extend(page_filters[page_name])
 
-            pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
+            pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields,
+                                                visual_type, model, matrix_columns=matrix_columns)
 
             if pattern == "Unknown":
                 continue
@@ -800,9 +1017,11 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
         "DAX Query",
         "Filtered DAX Query",
         "Filter Fields",
+        "Matrix Column Field",
+        "Preflight VALUES Query",
         "Validated?"
     ]
-    col_widths = [22, 32, 22, 24, 70, 70, 30, 12]
+    col_widths = [22, 32, 22, 24, 70, 70, 30, 30, 50, 12]
 
     for i, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=i, value=h)
@@ -825,14 +1044,15 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
         fields = data["fields"]
 
         # Classify fields
-        grouping, measures, filters, slicer_fields = classify_visual_fields(fields)
+        grouping, measures, filters, slicer_fields, matrix_columns = classify_visual_fields(fields)
 
         # Add page filters to filter list
         if page in page_filters:
             filters.extend(page_filters[page])
 
         # Build base DAX query
-        pattern, dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
+        pattern, dax = build_dax_query(grouping, measures, filters, slicer_fields,
+                                       visual_type, model, matrix_columns=matrix_columns)
 
         # Add filter comments
         dax = add_filter_comments(dax, filters)
@@ -877,15 +1097,25 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
         # Format filter field names
         filter_str = ", ".join([f"'{f['table_sm']}'[{f['col_sm']}]" for f in filters]) if filters else "None"
 
+        # Matrix column-axis info
+        matrix_col_str = ""
+        values_query_str = ""
+        if matrix_columns and pattern.startswith("Pattern 3M"):
+            matrix_col_str = ", ".join(
+                [f"'{mc['table_sm']}'[{mc['col_sm']}]" for mc in matrix_columns]
+            )
+            values_query_str = build_matrix_values_query(matrix_columns)
+
         # Write row
-        row_data = [page, visual_name, visual_type, pattern, dax, filtered_dax, filter_str, ""]
+        row_data = [page, visual_name, visual_type, pattern, dax, filtered_dax,
+                    filter_str, matrix_col_str, values_query_str, ""]
         is_alt = idx % 2 == 1
 
         for j, val in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=j, value=val)
             cell.border = thin
             cell.alignment = wrap
-            if j in (5, 6):  # DAX query columns
+            if j in (5, 6, 9):  # DAX query columns + preflight query
                 cell.font = code_font
                 cell.fill = code_fill
             else:
@@ -898,7 +1128,7 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
 
     # Freeze and filter
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:H{row_num - 1}"
+    ws.auto_filter.ref = f"A1:J{row_num - 1}"
 
     # --- Bookmark DAX Queries sheet ---
     if bookmark_queries:
@@ -992,12 +1222,17 @@ def find_visual(visuals, search_term):
 
 def get_single_visual_query(visuals, page_filters, visual_search,
                             filter_exprs=None, having_exprs=None, model=None,
-                            filter_expr_data=None):
+                            filter_expr_data=None, column_values=None,
+                            flat_measures=None):
     """Look up a single visual's DAX query and optionally wrap with filters.
 
     Automatically applies preset filters from the Filter Expressions sheet
     (report-level, page-level, visual-level) before applying any explicit
     filter_exprs passed by the caller. Explicit filters are additive.
+
+    For Matrix visuals with column-axis fields (Pattern 3M), returns the
+    preflight VALUES() query and matrix column info. If column_values is
+    provided, generates the pivoted CALCULATE query.
 
     Args:
         visuals: OrderedDict from read_extractor_output
@@ -1008,10 +1243,15 @@ def get_single_visual_query(visuals, page_filters, visual_search,
         model: optional SemanticModel for fallback measure formula lookup
         filter_expr_data: optional list of dicts from Filter Expressions sheet —
             preset report/page/visual filters are auto-applied when present
+        column_values: optional list of distinct values for matrix column-axis field —
+            when provided, generates the pivoted CALCULATE query
+        flat_measures: optional list of measure ui_names that should NOT be pivoted —
+            included once without CALCULATE wrapping (for measures unrelated to column-axis)
 
     Returns:
         dict with keys: page, visual_name, visual_type, pattern, dax_query,
-        base_dax_query, filters_applied, having_applied, preset_filters_applied
+        base_dax_query, filters_applied, having_applied, preset_filters_applied,
+        matrix_columns, values_query, pivot_dax_query
         or None if no match found.
     """
     matches = find_visual(visuals, visual_search)
@@ -1038,11 +1278,34 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     fields = data["fields"]
 
     # Classify fields and build base DAX
-    grouping, measures, filters, slicer_fields = classify_visual_fields(fields)
+    grouping, measures, filters, slicer_fields, matrix_columns = classify_visual_fields(fields)
     if page in page_filters:
         filters.extend(page_filters[page])
 
-    pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
+    pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields,
+                                        visual_type, model, matrix_columns=matrix_columns)
+
+    # --- Matrix pivot support ---
+    values_query = ""
+    pivot_dax_query = ""
+    matrix_col_info = []
+    auto_flat_measures = []
+    if matrix_columns and pattern.startswith("Pattern 3M"):
+        values_query = build_matrix_values_query(matrix_columns)
+        matrix_col_info = [
+            {"table": mc["table_sm"], "column": mc["col_sm"], "ui_name": mc["ui_name"]}
+            for mc in matrix_columns
+        ]
+        if column_values:
+            pivot_result = build_matrix_pivot_query(
+                grouping, measures, matrix_columns, column_values, model,
+                flat_measures=flat_measures
+            )
+            # 3-tuple when auto-detection found flat measures, 2-tuple otherwise
+            if len(pivot_result) == 3:
+                _, pivot_dax_query, auto_flat_measures = pivot_result
+            else:
+                _, pivot_dax_query = pivot_result
 
     # --- Auto-collect preset filters from Filter Expressions sheet ---
     preset_filters = []
@@ -1086,6 +1349,16 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     if meas_filters:
         filtered_dax = wrap_dax_with_having(filtered_dax, meas_filters)
 
+    # Also wrap pivot query with filters if applicable
+    if pivot_dax_query and active_filters:
+        if col_filters:
+            pivot_dax_query = wrap_dax_with_filters(
+                f"EVALUATE\n{pivot_dax_query.split('EVALUATE')[1].strip()}" if "EVALUATE" in pivot_dax_query else pivot_dax_query,
+                col_filters, "Pattern 3M: Matrix Pivot"
+            )
+            # Re-extract just the pivot part (wrap_dax_with_filters already adds EVALUATE)
+            pivot_dax_query = pivot_dax_query
+
     # Wrap with post-aggregation conditions (FILTER) from explicit having
     if having_exprs:
         filtered_dax = wrap_dax_with_having(filtered_dax, having_exprs)
@@ -1106,6 +1379,10 @@ def get_single_visual_query(visuals, page_filters, visual_search,
         "filters_applied": filters_applied,
         "having_applied": having_applied,
         "preset_filters_applied": preset_applied,
+        "matrix_columns": matrix_col_info,
+        "values_query": values_query,
+        "pivot_dax_query": pivot_dax_query,
+        "auto_flat_measures": auto_flat_measures,
     }
 
 
@@ -1168,6 +1445,16 @@ def main():
                 print(f"All filters: {result['filters_applied']}")
             if result['having_applied']:
                 print(f"Having: {result['having_applied']}")
+            if result.get('matrix_columns'):
+                mc_str = ", ".join(
+                    f"'{mc['table']}'[{mc['column']}]" for mc in result['matrix_columns']
+                )
+                print(f"\nMatrix column-axis field: {mc_str}")
+                print(f"Preflight VALUES query:")
+                print(result['values_query'])
+            if result.get('pivot_dax_query'):
+                print(f"\nPivoted DAX:")
+                print(result['pivot_dax_query'])
             print(f"\nFiltered DAX:")
             print(result['dax_query'])
             print(f"\nBase DAX:")
@@ -1203,10 +1490,11 @@ def main():
     print("\n--- Summary ---")
     for (page, _key), data in visuals.items():
         visual_name = data["visual_name"]
-        grouping, measures, filters, slicer_fields = classify_visual_fields(data["fields"])
+        grouping, measures, filters, slicer_fields, matrix_columns = classify_visual_fields(data["fields"])
         if page in page_filters:
             filters.extend(page_filters[page])
-        pattern, _ = build_dax_query(grouping, measures, filters, slicer_fields, data["visual_type"], model)
+        pattern, _ = build_dax_query(grouping, measures, filters, slicer_fields,
+                                     data["visual_type"], model, matrix_columns=matrix_columns)
         filter_note = f" [has filters]" if filters else ""
         print(f"  {page} / {visual_name} ({data['visual_type']}) -> {pattern}{filter_note}")
 

@@ -125,6 +125,17 @@ When the user picks a visual, deliver exactly three things:
 
 If the user provides custom filter values, wrap the base query accordingly and present the result.
 
+**Matrix visuals with column-axis fields (Pattern 3M):**
+When a Matrix has fields on the Columns axis (e.g., SeparationReason → Involuntary/Voluntary), PBI pivots them into column groups. The standard SUMMARIZECOLUMNS would cause measures to return BLANK for the column-axis field. Instead:
+
+1. **Detect** the Matrix column-axis field (usage = "Visual Matrix Column")
+2. **Present the preflight VALUES() query** and ask the user to run it in DAX Studio
+3. **User provides the distinct values** (e.g., `Involuntary, Voluntary`)
+4. **Generate the pivoted CALCULATE query** — one `CALCULATE([Measure], column = value)` per value × measure
+5. **Auto-detect flat measures:** When a semantic model with relationships is loaded, measures whose home table is unreachable from the column-axis table via filter lineage are automatically excluded from pivoting and included as flat columns. If any measures were auto-excluded, tell the user (e.g., "Auto-detected **Actives**, **Act SPLY** as unrelated to SeparationReason (no filter path in the model). These are included as flat columns."). This catches most "no relationship path" cases. **Caveat:** lineage misses edge cases where the path exists but measure logic conflicts (e.g., `[Actives]` filtering to `ISBLANK(TermDate)` while SeparationReason flows through TermReason). For these, the BLANK warning below is the safety net.
+6. **Warn about potential BLANK columns (safety net):** After generating the pivot query, tell the user: "If any columns return BLANK, tell me which measures and I'll move them to flat (unpivoted) columns." Use `flat_measures` param in `build_matrix_pivot_query` / `get_single_visual_query` to regenerate.
+7. If the user can't run the preflight, **fall back** to the summary query (row groupings + all measures, no column-axis field) and note the limitation
+
 **Formatting rules for DAX output:**
 - Use fenced code blocks with `dax` language tag
 - Indent nested expressions for readability
@@ -336,14 +347,20 @@ Reads the metadata extractor output (Skill 1's Excel) and generates a DAX query 
   - **Pattern 1 (Measures Only):** Cards, KPIs — `EVALUATE { [Measure] }` or `EVALUATE ROW(...)`
   - **Pattern 2 (Columns Only):** Slicers, column-only visuals — `EVALUATE VALUES(...)` or `EVALUATE DISTINCT(SELECTCOLUMNS(...))`
   - **Pattern 3 (Columns + Measures):** Most visuals — `EVALUATE SUMMARIZECOLUMNS(...)`
+  - **Pattern 3M (Matrix Pivot):** Matrix visuals with column-axis fields. Batch mode emits a summary query (row groupings + measures, no column-axis field). Interactive mode uses a preflight `VALUES()` query to get distinct column values, then generates a single pivoted `SUMMARIZECOLUMNS` with `CALCULATE` per (value × measure) pair.
   - **Unknown:** Fallback comment when pattern can't be determined
 - **Bookmark DAX wrapping:**
   - Pattern 1 Single Measure → `EVALUATE { CALCULATE([Measure], filter1, ...) }`
   - All others → `EVALUATE CALCULATETABLE(<inner>, filter1, ...)`
   - Only visible visuals (Visible = Y) get bookmark queries
 - **Key logic:**
-  - `classify_field()` — maps Usage labels to roles: grouping, measure, filter, slicer, page_filter
-  - `build_dax_query()` — selects the DAX pattern based on which field roles are present
+  - `classify_field()` — maps Usage labels to roles: grouping, measure, filter, slicer, page_filter, matrix_column
+  - `build_dax_query()` — selects the DAX pattern based on which field roles are present (accepts `matrix_columns` param for Pattern 3M)
+  - `build_matrix_values_query()` — generates preflight `EVALUATE VALUES(...)` query for matrix column-axis fields
+  - `build_matrix_pivot_query()` — generates pivoted SUMMARIZECOLUMNS with CALCULATE per (column_value × measure) pair. When `flat_measures` is None and model has relationships, auto-detects unreachable measures via `auto_detect_flat_measures()` and excludes them from pivoting
+  - `build_filter_graph(relationships)` — builds directed filter-propagation graph from `TmdlRelationship` objects (dimension→fact edges; bidirectional for `bothDirections`)
+  - `can_filter_reach(graph, source_table, target_table)` — BFS reachability check through the filter graph
+  - `auto_detect_flat_measures(measures, matrix_columns, model)` — uses filter lineage to find measures whose home table is unreachable from the column-axis table; these are included as flat (unpivoted) columns
   - `wrap_dax_with_filters()` — wraps base DAX with CALCULATETABLE/CALCULATE for bookmark filters
   - `build_bookmark_queries()` — orchestrates bookmark DAX generation for all visible visuals
   - Page-level filters are appended to each visual's filter list
@@ -360,13 +377,19 @@ python skills/dax_query_builder.py "output/pbi_report_metadata.xlsx" "output/dax
 Reusable TMDL semantic model parser. Extracts both measures AND columns from TMDL files into a `SemanticModel` dataclass with case-insensitive lookup indexes. Used by Skills 1 and 2.
 
 - **Key functions:**
-  - `parse_semantic_model(model_root)` -- returns `SemanticModel` with measures, columns, and indexes
+  - `parse_semantic_model(model_root)` -- returns `SemanticModel` with measures, columns, indexes, and relationships
+  - `_parse_relationships_tmdl(content)` -- parses `relationships.tmdl` into `TmdlRelationship` objects (handles quoted table/column names, `crossFilteringBehavior`, `isActive`, `fromCardinality`/`toCardinality`)
   - `parse_tmdl_files(tables_dir)` -- legacy wrapper for Skill 1 (returns measures dict only)
   - `match_field_to_model(field_name, model)` -- matches a bare field name to the model
     - Priority: exact measure -> exact column -> fuzzy match (normalized) -> None
+- **Relationship loading** (in `parse_semantic_model`):
+  1. First tries `relationships.json` (written by pbix_extractor for `.pbix` files)
+  2. Falls back to `relationships.tmdl` (native PBIP format) if no relationships loaded
+  - Both formats produce the same `TmdlRelationship` objects
 - **Data classes:**
-  - `SemanticModel` -- measures dict, columns dict, case-insensitive name indexes
+  - `SemanticModel` -- measures dict, columns dict, case-insensitive name indexes, relationships list
   - `TmdlColumn` -- table, name, data_type, is_hidden
+  - `TmdlRelationship` -- from_table, from_column, to_table, to_column, is_active, cardinality, cross_filtering
 
 ### Shared Module: bookmark_parser.py
 Parses bookmark JSON files from PBIP report definitions. Converts bookmark filter conditions into DAX filter expressions and tracks visual visibility per bookmark.

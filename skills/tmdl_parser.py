@@ -203,6 +203,92 @@ def _parse_single_tmdl(filepath: Path) -> tuple[dict, dict]:
 # Public API
 # ============================================================
 
+def _parse_relationships_tmdl(content: str) -> list:
+    """Parse relationships.tmdl content into TmdlRelationship objects.
+
+    Format:
+        relationship <UUID>
+            [optional properties like joinOnDateBehavior, crossFilteringBehavior, isActive]
+            fromColumn: Table.Column  or  'Quoted Table'.Column
+            toColumn: Table.Column  or  'Quoted Table'.'Quoted Column'
+
+    Returns list of TmdlRelationship.
+    """
+    relationships = []
+
+    # Split into blocks — each starts with "relationship <UUID>"
+    # Blocks are separated by blank lines
+    block_pattern = re.compile(
+        r"^relationship\s+\S+\n(.*?)(?=^relationship\s|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+
+    # Column reference pattern: 'Quoted Name'.ColumnName or Table.Column or 'Quoted'.'Quoted'
+    # Captures: optional 'quoted table' OR bare table, then dot, then optional 'quoted col' OR bare col
+    col_ref_pattern = re.compile(
+        r"(?:'([^']+)'|(\S+?))\.(?:'([^']+)'|(\S+))"
+    )
+
+    for block_match in block_pattern.finditer(content):
+        body = block_match.group(1)
+
+        from_table = from_column = to_table = to_column = ""
+        is_active = True
+        cross_filtering = ""
+        cardinality = ""
+
+        for line in body.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            if stripped.startswith("fromColumn:"):
+                ref = stripped[len("fromColumn:"):].strip()
+                m = col_ref_pattern.match(ref)
+                if m:
+                    from_table = m.group(1) or m.group(2)
+                    from_column = m.group(3) or m.group(4)
+
+            elif stripped.startswith("toColumn:"):
+                ref = stripped[len("toColumn:"):].strip()
+                m = col_ref_pattern.match(ref)
+                if m:
+                    to_table = m.group(1) or m.group(2)
+                    to_column = m.group(3) or m.group(4)
+
+            elif stripped.startswith("isActive:"):
+                val = stripped.split(":", 1)[1].strip().lower()
+                is_active = val != "false"
+
+            elif stripped.startswith("crossFilteringBehavior:"):
+                cross_filtering = stripped.split(":", 1)[1].strip()
+
+            # fromCardinality/toCardinality → combine into cardinality string
+            elif stripped.startswith("fromCardinality:"):
+                card_val = stripped.split(":", 1)[1].strip()
+                cardinality = f"{card_val}To{cardinality.split('To')[-1]}" if "To" in cardinality else f"{card_val}To"
+
+            elif stripped.startswith("toCardinality:"):
+                card_val = stripped.split(":", 1)[1].strip()
+                if cardinality and cardinality.endswith("To"):
+                    cardinality = cardinality + card_val
+                else:
+                    cardinality = f"To{card_val}"
+
+        if from_table and to_table:
+            relationships.append(TmdlRelationship(
+                from_table=from_table,
+                from_column=from_column,
+                to_table=to_table,
+                to_column=to_column,
+                is_active=is_active,
+                cardinality=cardinality,
+                cross_filtering=cross_filtering,
+            ))
+
+    return relationships
+
+
 def parse_semantic_model(model_root) -> SemanticModel:
     """Parse all TMDL files in a semantic model directory.
 
@@ -241,6 +327,16 @@ def parse_semantic_model(model_root) -> SemanticModel:
                 ))
         except (json.JSONDecodeError, KeyError) as e:
             print(f"WARNING: Could not parse relationships.json: {e}")
+
+    # Fallback: parse relationships.tmdl if no relationships loaded yet
+    if not model.relationships:
+        rel_tmdl_file = model_root / "relationships.tmdl"
+        if rel_tmdl_file.is_file():
+            try:
+                content = rel_tmdl_file.read_text(encoding="utf-8-sig")
+                model.relationships = _parse_relationships_tmdl(content)
+            except Exception as e:
+                print(f"WARNING: Could not parse relationships.tmdl: {e}")
 
     if not tables_dir.is_dir():
         print(f"WARNING: Tables directory not found: {tables_dir}")
