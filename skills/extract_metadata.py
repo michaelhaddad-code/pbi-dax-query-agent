@@ -595,6 +595,51 @@ def extract_filter_expressions_from_list(filters: list, page_name: str,
     return results
 
 
+def _extract_slicer_selection(vis: dict, page_name: str,
+                              visual_name: str, visual_id: str) -> list[dict]:
+    """Extract persisted slicer filter selections from objects.general[].properties.filter.
+
+    Slicer visuals can store a saved filter state at:
+        visual.objects.general[*].properties.filter.filter
+    The inner filter object has the same From/Where/Condition structure as
+    bookmark filters, so extract_single_filter() handles it directly.
+
+    Returns:
+        List of dicts for the Filter Expressions sheet with Filter Level = "Slicer".
+    """
+    results = []
+    general_items = vis.get("objects", {}).get("general", [])
+    for item in general_items:
+        filter_wrapper = item.get("properties", {}).get("filter")
+        if not filter_wrapper or "filter" not in filter_wrapper:
+            continue
+
+        # extract_single_filter expects {"filter": {From, Where, ...}} — filter_wrapper has this shape
+        dax_exprs = extract_single_filter(filter_wrapper)
+        if not dax_exprs:
+            continue
+
+        # Extract filter field ('Table'[Column]) from the DAX expression
+        filter_field_str = ""
+        for dax_expr in dax_exprs:
+            match = re.search(r"'[^']+'\[[^\]]+\]", dax_expr)
+            if match:
+                filter_field_str = match.group(0)
+                break
+
+        for dax_expr in dax_exprs:
+            results.append({
+                "Page Name": page_name,
+                "Visual Name": visual_name,
+                "Visual ID": visual_id,
+                "Filter Level": "Slicer",
+                "Filter Field": filter_field_str,
+                "Filter DAX Expression": dax_expr,
+            })
+
+    return results
+
+
 # ============================================================
 # Main extraction function
 # ============================================================
@@ -773,6 +818,16 @@ def extract_metadata(report_root: str, model_root: str,
                     filter_expressions.extend(extract_filter_expressions_from_list(
                         vis_filters, page_name, vis_label, vis_folder.name, "Visual",
                     ))
+
+                # Extract persisted slicer filter selections
+                vis = vis_json.get("visual", {})
+                vis_type = vis.get("visualType", "")
+                if vis_type in ("slicer", "advancedSlicerVisual"):
+                    slicer_filters = _extract_slicer_selection(
+                        vis, page_name, vis_label, vis_folder.name,
+                    )
+                    if slicer_filters:
+                        filter_expressions.extend(slicer_filters)
             else:
                 # Even data-less visuals (buttons, images) get their type as name
                 vis = vis_json.get("visual", {})

@@ -108,7 +108,9 @@ Ask: *"Which visual do you want the DAX query for?"*
 ### Step 4: DAX OUTPUT — Deliver Three Things
 When the user picks a visual, deliver exactly three things:
 
-**1. Filtered DAX query (primary)** — the query with ALL applicable filters (report-level + page-level + visual-level) already applied via `CALCULATETABLE` / `CALCULATE`. This is what the user sees in the actual report.
+**MANDATORY: Check Filter Expressions sheet FIRST.** Before building any filtered query, ALWAYS read the **Filter Expressions** sheet from the metadata Excel to find preset filter values (report-level, page-level, visual-level). The Report Metadata sheet only lists filter *field names* — the actual preset *values* (e.g., `'Date'[Year] = 2014`) live in the Filter Expressions sheet. Use `collect_filters_for_visual()` or `get_single_visual_query()` with `filter_expr_data` to auto-collect them. **Never assume a page filter has "no preset value" just because the Report Metadata sheet doesn't show one — always cross-check Filter Expressions.**
+
+**1. Filtered DAX query (primary)** — the query with ALL applicable filters (report-level + page-level + visual-level) already applied via `CALCULATETABLE` / `CALCULATE`. This is what the user sees in the actual report. This MUST include preset filter values from the Filter Expressions sheet.
 
 **2. Unfiltered (base) DAX query** — the raw query without any filters. Useful for exploring the full dataset.
 
@@ -168,12 +170,12 @@ Never end the conversation after one visual. Always offer to continue.
 ## Filter Rules
 
 ### Filter Hierarchy
-Power BI applies filters in this order: **Report → Page → Visual**. Inner filters override outer filters when they target the same column.
+Power BI applies filters in this order: **Report → Page → Slicer → Visual**. Inner filters override outer filters when they target the same column.
 
 When building the filtered DAX expression:
 - List filters from outermost to innermost scope so the DAX engine resolves conflicts the same way PBI does
 - If a visual-level filter targets the same column as a report-level filter, only include the visual-level filter (it overrides)
-- Report filters apply to ALL visuals, page filters apply to all visuals on that page, visual filters apply to that specific visual only
+- Report filters apply to ALL visuals, page filters apply to all visuals on that page, slicer filters (persisted selections) apply to all visuals on the same page except the slicer itself, visual filters apply to that specific visual only
 
 ### Filter Redundancy Check
 Before wrapping with CALCULATETABLE, check if measure formulas already reference the filtered column internally:
@@ -311,7 +313,8 @@ Parses PBIP report files (JSON + TMDL) to extract every visual, field, filter, a
 - **Key logic:**
   - `resolve_measure_dependencies()` — recursive DAX formula parsing with visited-set cycle prevention
   - `extract_field_info()` — handles Column, Measure, Aggregation, and HierarchyLevel field types
-  - Extracts report-level, page-level, and visual-level filters separately
+  - Extracts report-level, page-level, visual-level, and slicer persisted selection filters separately
+  - Slicer filter extraction: reads `visual.objects.general[].properties.filter.filter` (same From/Where/Condition format as bookmarks). These appear in the Filter Expressions sheet with `Filter Level = "Slicer"` and are applied to all visuals on the same page (except the slicer itself) during DAX query generation.
   - Builds visual_id_to_name and page_id_to_name mappings for bookmark resolution
   - `extract_metadata()` returns `(df, bookmarks_list)` tuple
 
@@ -434,6 +437,7 @@ python skills/chart_generator.py \
 9. **Always deliver three outputs per visual** — filtered query first, then base query, then custom filter offer.
 10. **Keep DAX code blocks clean** — NEVER embed disclaimers, comments like "adjust as needed", or explanatory notes inside DAX code blocks. Present clean, executable DAX. If a disclaimer is needed (e.g., relative date filters), add it as a brief note below the code block.
 11. **Relative date filters: keep explanations simple** — When a filter uses relative date offsets that can't be resolved statically, give a one-line disclaimer (e.g., "This report uses a relative date filter, so the year values `{2025, 2024}` may differ at runtime."). Do NOT explain PBI internals, offset encoding, or how relative dates work unless the user specifically asks.
+12. **ALWAYS check the Filter Expressions sheet for preset filter values** — The Report Metadata sheet only lists filter *field names*. Preset values (e.g., `'Date'[Year] = 2014`) are in the Filter Expressions sheet. Before presenting a filtered DAX query, ALWAYS cross-reference Filter Expressions for report-level, page-level, and visual-level preset values. Use `collect_filters_for_visual()` or pass `filter_expr_data` to `get_single_visual_query()`. Never tell the user "no preset values" without checking this sheet first.
 
 ## Validation Status
 The pipeline has been manually cross-checked against four reports:

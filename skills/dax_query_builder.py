@@ -690,7 +690,7 @@ def read_extractor_output(filepath):
 # =============================================================================
 
 def collect_filters_for_visual(page_name, visual_name, visual_id, filter_expr_data):
-    """Collect applicable filter DAX expressions following hierarchy: Report → Page → Visual.
+    """Collect applicable filter DAX expressions following hierarchy: Report → Page → Slicer → Visual.
 
     Skips TopN and unsupported entries (starting with --).
 
@@ -725,6 +725,15 @@ def collect_filters_for_visual(page_name, visual_name, visual_id, filter_expr_da
                 filters.append(dax_expr)
             elif not visual_id and fe["visual_name"] == visual_name and fe["page_name"] == page_name:
                 filters.append(dax_expr)
+        # Slicer-level: persisted slicer selection applies to all visuals on the page
+        # (except the slicer itself)
+        elif level == "Slicer" and fe["page_name"] == page_name:
+            # Don't apply slicer filter back to the slicer visual itself
+            if visual_id and fe["visual_id"] == visual_id:
+                continue
+            if not visual_id and fe["visual_name"] == visual_name:
+                continue
+            filters.append(dax_expr)
 
     return filters
 
@@ -982,8 +991,13 @@ def find_visual(visuals, search_term):
 
 
 def get_single_visual_query(visuals, page_filters, visual_search,
-                            filter_exprs=None, having_exprs=None, model=None):
+                            filter_exprs=None, having_exprs=None, model=None,
+                            filter_expr_data=None):
     """Look up a single visual's DAX query and optionally wrap with filters.
+
+    Automatically applies preset filters from the Filter Expressions sheet
+    (report-level, page-level, visual-level) before applying any explicit
+    filter_exprs passed by the caller. Explicit filters are additive.
 
     Args:
         visuals: OrderedDict from read_extractor_output
@@ -992,9 +1006,12 @@ def get_single_visual_query(visuals, page_filters, visual_search,
         filter_exprs: optional list of pre-aggregation DAX filter expressions (CALCULATETABLE)
         having_exprs: optional list of post-aggregation DAX conditions (FILTER)
         model: optional SemanticModel for fallback measure formula lookup
+        filter_expr_data: optional list of dicts from Filter Expressions sheet —
+            preset report/page/visual filters are auto-applied when present
 
     Returns:
-        dict with keys: page, visual_name, visual_type, pattern, dax_query, filters_applied, having_applied
+        dict with keys: page, visual_name, visual_type, pattern, dax_query,
+        base_dax_query, filters_applied, having_applied, preset_filters_applied
         or None if no match found.
     """
     matches = find_visual(visuals, visual_search)
@@ -1016,6 +1033,7 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     page = key[0]
     data = visuals[key]
     visual_name = data["visual_name"]
+    visual_id = data.get("visual_id", "")
     visual_type = data["visual_type"]
     fields = data["fields"]
 
@@ -1026,8 +1044,24 @@ def get_single_visual_query(visuals, page_filters, visual_search,
 
     pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields, visual_type, model)
 
+    # --- Auto-collect preset filters from Filter Expressions sheet ---
+    preset_filters = []
+    if filter_expr_data:
+        preset_filters = collect_filters_for_visual(
+            page, visual_name, visual_id, filter_expr_data,
+        )
+
+    # Merge preset filters with explicit caller-provided filters (additive)
+    all_filters = list(preset_filters)
+    if filter_exprs:
+        # Avoid duplicates — only add explicit filters not already in preset
+        existing = set(all_filters)
+        for f in filter_exprs:
+            if f not in existing:
+                all_filters.append(f)
+
     # Check for filter redundancy before wrapping with CALCULATETABLE
-    active_filters = list(filter_exprs) if filter_exprs else []
+    active_filters = list(all_filters)
     if active_filters:
         measure_fields = [f for f in fields if classify_field(f["usage"]) == "measure"]
         redundancy_warnings = check_filter_redundancy(measure_fields, active_filters, model)
@@ -1041,29 +1075,37 @@ def get_single_visual_query(visuals, page_filters, visual_search,
                 print(f"  Skipping this filter to avoid result mismatch.")
             active_filters = [f for f in active_filters if f not in conflicting]
 
-    # Wrap with pre-aggregation filters (CALCULATETABLE)
-    if active_filters:
-        dax = wrap_dax_with_filters(base_dax, active_filters, pattern)
-        filters_applied = "; ".join(active_filters)
-    else:
-        dax = base_dax
-        filters_applied = ""
+    # Separate column filters from measure filters
+    col_filters = [f for f in active_filters if not _is_measure_filter(f)]
+    meas_filters = [f for f in active_filters if _is_measure_filter(f)]
 
-    # Wrap with post-aggregation conditions (FILTER)
+    # Build filtered DAX query
+    filtered_dax = base_dax
+    if col_filters:
+        filtered_dax = wrap_dax_with_filters(filtered_dax, col_filters, pattern)
+    if meas_filters:
+        filtered_dax = wrap_dax_with_having(filtered_dax, meas_filters)
+
+    # Wrap with post-aggregation conditions (FILTER) from explicit having
     if having_exprs:
-        dax = wrap_dax_with_having(dax, having_exprs)
+        filtered_dax = wrap_dax_with_having(filtered_dax, having_exprs)
         having_applied = "; ".join(having_exprs)
     else:
         having_applied = ""
+
+    filters_applied = "; ".join(active_filters) if active_filters else ""
+    preset_applied = "; ".join(preset_filters) if preset_filters else ""
 
     return {
         "page": page,
         "visual_name": visual_name,
         "visual_type": visual_type,
         "pattern": pattern,
-        "dax_query": dax,
+        "dax_query": filtered_dax,
+        "base_dax_query": base_dax,
         "filters_applied": filters_applied,
         "having_applied": having_applied,
+        "preset_filters_applied": preset_applied,
     }
 
 
@@ -1114,16 +1156,22 @@ def main():
     # --- Single visual mode ---
     if args.visual:
         result = get_single_visual_query(visuals, page_filters, args.visual,
-                                         args.filters, args.having, model)
+                                         args.filters, args.having, model,
+                                         filter_expr_data)
         if result:
             print(f"Page: {result['page']}")
             print(f"Visual: {result['visual_name']} ({result['visual_type']})")
             print(f"Pattern: {result['pattern']}")
+            if result['preset_filters_applied']:
+                print(f"Preset filters: {result['preset_filters_applied']}")
             if result['filters_applied']:
-                print(f"Filters: {result['filters_applied']}")
+                print(f"All filters: {result['filters_applied']}")
             if result['having_applied']:
                 print(f"Having: {result['having_applied']}")
-            print(f"\n{result['dax_query']}")
+            print(f"\nFiltered DAX:")
+            print(result['dax_query'])
+            print(f"\nBase DAX:")
+            print(result['base_dax_query'])
         return
 
     # --- Full output mode ---
