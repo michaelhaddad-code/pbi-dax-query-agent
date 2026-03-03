@@ -936,11 +936,12 @@ def collect_filters_for_visual(page_name, visual_name, visual_id, filter_expr_da
         elif level == "Page" and fe["page_name"] == page_name:
             filters.append(dax_expr)
         # Visual-level: applies to this specific visual only
-        elif level == "Visual":
+        elif level == "Visual" and fe["page_name"] == page_name:
             # Match by visual_id first (preferred), fall back to visual_name
+            # Page check is required because visual container IDs can collide across pages
             if visual_id and fe["visual_id"] == visual_id:
                 filters.append(dax_expr)
-            elif not visual_id and fe["visual_name"] == visual_name and fe["page_name"] == page_name:
+            elif not visual_id and fe["visual_name"] == visual_name:
                 filters.append(dax_expr)
         # Slicer-level: persisted slicer selection applies to all visuals on the page
         # (except the slicer itself)
