@@ -491,6 +491,39 @@ def add_filter_comments(dax, filters):
     return dax
 
 
+def _is_measure_filter(expr: str) -> bool:
+    """Detect if a DAX filter expression is measure-based (not column-based).
+
+    Measure-based filters reference bare [MeasureName] without a 'Table' prefix,
+    e.g. NOT ([Total Units YTD Var %] = BLANK()), [Revenue] > 1000, ISBLANK([KPI]).
+    These CANNOT go inside CALCULATETABLE — they must wrap with FILTER() instead.
+
+    Column-based filters use 'Table'[Column] syntax and ARE valid in CALCULATETABLE.
+    """
+    # Strip outer NOT/parentheses for analysis
+    stripped = expr.strip()
+
+    # Find all [Name] references in the expression
+    # Bare measure refs: [Name] NOT preceded by ' (which would be 'Table'[Column])
+    bare_refs = re.findall(r"(?<!')\[([^\]]+)\]", stripped)
+
+    # Find all 'Table'[Column] qualified refs
+    qualified_refs = re.findall(r"'[^']+'\[([^\]]+)\]", stripped)
+
+    # If there are bare refs that aren't also qualified, it's a measure filter
+    # Also check for BLANK(), ISBLANK patterns as strong signals
+    has_blank = bool(re.search(r"BLANK\s*\(\s*\)|ISBLANK\s*\(", stripped, re.IGNORECASE))
+
+    if bare_refs and not qualified_refs:
+        # All refs are bare [Name] — measure filter
+        return True
+    if bare_refs and has_blank:
+        # Has bare refs + BLANK check — measure filter
+        return True
+
+    return False
+
+
 def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> str:
     """Wrap a base DAX query with bookmark filter expressions.
 
@@ -499,6 +532,9 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
 
     For all other patterns, uses CALCULATETABLE:
         EVALUATE CALCULATETABLE(<inner>, filter1, filter2)
+
+    Measure-based filters (e.g. NOT ([Measure] = BLANK())) cannot go inside
+    CALCULATETABLE — they are applied as an outer FILTER() wrapper instead.
 
     Args:
         base_dax: The original DAX query string (starts with EVALUATE)
@@ -511,6 +547,15 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
     if not filter_exprs:
         return base_dax
 
+    # Separate column filters (CALCULATETABLE-safe) from measure filters (need FILTER)
+    column_filters = []
+    measure_filters = []
+    for expr in filter_exprs:
+        if _is_measure_filter(expr):
+            measure_filters.append(expr)
+        else:
+            column_filters.append(expr)
+
     # Strip any trailing filter comments from the base DAX
     lines = base_dax.split("\n")
     core_lines = []
@@ -520,7 +565,7 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
         core_lines.append(line)
     clean_dax = "\n".join(core_lines).rstrip()
 
-    filter_args = ",\n    ".join(filter_exprs)
+    filter_args = ",\n    ".join(column_filters) if column_filters else ""
 
     # Pattern 1: Single Measure → CALCULATE
     if pattern == "Pattern 1: Single Measure":
@@ -529,9 +574,11 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
         measure_match = re.search(r"\{\s*(.+?)\s*\}", clean_dax)
         if measure_match:
             measure_ref = measure_match.group(1)
+            # For single measure, all filters (column + measure) go in CALCULATE
+            all_args = ",\n    ".join(filter_exprs)
             return (f"EVALUATE\n"
                     f"{{ CALCULATE({measure_ref},\n"
-                    f"    {filter_args}\n"
+                    f"    {all_args}\n"
                     f") }}")
 
     # Pattern 1: Multiple Measures → CALCULATE for each measure in ROW
@@ -541,18 +588,31 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
         # Simpler approach: wrap the whole ROW in CALCULATETABLE
         pass  # Fall through to CALCULATETABLE
 
-    # All other patterns: CALCULATETABLE
+    # All other patterns: CALCULATETABLE (column filters) + FILTER (measure filters)
     # Strip the leading "EVALUATE\n" to get the inner expression
     if clean_dax.upper().startswith("EVALUATE"):
         inner = clean_dax[len("EVALUATE"):].strip()
     else:
         inner = clean_dax
 
-    return (f"EVALUATE\n"
-            f"CALCULATETABLE(\n"
-            f"    {inner},\n"
-            f"    {filter_args}\n"
-            f")")
+    # Build CALCULATETABLE with column filters only
+    if column_filters:
+        result = (f"CALCULATETABLE(\n"
+                  f"    {inner},\n"
+                  f"    {filter_args}\n"
+                  f")")
+    else:
+        result = inner
+
+    # Wrap with FILTER for measure-based filters
+    if measure_filters:
+        condition = " && ".join(measure_filters)
+        result = (f"FILTER(\n"
+                  f"    {result},\n"
+                  f"    {condition}\n"
+                  f")")
+
+    return f"EVALUATE\n{result}"
 
 
 def wrap_dax_with_having(dax: str, having_exprs: list) -> str:

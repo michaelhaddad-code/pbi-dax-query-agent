@@ -361,7 +361,8 @@ Reads the metadata extractor output (Skill 1's Excel) and generates a DAX query 
   - `build_filter_graph(relationships)` — builds directed filter-propagation graph from `TmdlRelationship` objects (dimension→fact edges; bidirectional for `bothDirections`)
   - `can_filter_reach(graph, source_table, target_table)` — BFS reachability check through the filter graph
   - `auto_detect_flat_measures(measures, matrix_columns, model)` — uses filter lineage to find measures whose home table is unreachable from the column-axis table; these are included as flat (unpivoted) columns
-  - `wrap_dax_with_filters()` — wraps base DAX with CALCULATETABLE/CALCULATE for bookmark filters
+  - `_is_measure_filter()` — detects measure-based filter expressions (bare `[Measure]` refs, BLANK checks) vs column-based (`'Table'[Column]`)
+  - `wrap_dax_with_filters()` — wraps base DAX with CALCULATETABLE/CALCULATE for column filters; measure-based filters (e.g. `NOT ([Measure] = BLANK())`) are wrapped with outer FILTER() instead (they're invalid inside CALCULATETABLE)
   - `build_bookmark_queries()` — orchestrates bookmark DAX generation for all visible visuals
   - Page-level filters are appended to each visual's filter list
   - Unextracted filter values appear as comments in the main DAX Queries sheet
