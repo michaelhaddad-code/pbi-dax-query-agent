@@ -250,6 +250,42 @@ def _get_agg_name(func_id: int) -> str:
     return agg_map.get(func_id, f"Func{func_id}")
 
 
+def _extract_sort_order(sort_definition: dict) -> str:
+    """Convert a visual's sortDefinition to a DAX ORDER BY clause string.
+
+    The sortDefinition lives at visual.query.sortDefinition and uses the same
+    Measure / Column / Aggregation field structure as queryState projections.
+
+    Returns a string like '[Revenue Won] DESC' or "'Calendar'[Month] ASC" that
+    can be appended as ORDER BY to SUMMARIZECOLUMNS queries.
+    Returns an empty string when no sort is defined.
+    """
+    sort_items = sort_definition.get("sort", [])
+    if not sort_items:
+        return ""
+
+    parts = []
+    for item in sort_items:
+        field = item.get("field", {})
+        direction = "DESC" if item.get("direction", "Descending") == "Descending" else "ASC"
+        field_infos = extract_field_info(field)
+        for fi in field_infos:
+            if fi["field_type"] == "Measure":
+                parts.append(f"[{fi['property']}] {direction}")
+            elif fi["field_type"] == "Column":
+                if fi["entity"]:
+                    parts.append(f"'{fi['entity']}'[{fi['property']}] {direction}")
+                else:
+                    parts.append(f"[{fi['property']}] {direction}")
+            elif fi["field_type"].startswith("Aggregation"):
+                if fi["entity"]:
+                    parts.append(f"'{fi['entity']}'[{fi['property']}] {direction}")
+                else:
+                    parts.append(f"[{fi['property']}] {direction}")
+
+    return ", ".join(parts)
+
+
 # ============================================================
 # Measure dependency resolution (recursive)
 # ============================================================
@@ -428,8 +464,13 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
         display_type = get_visual_display_name(vis_type)
         vis_label = display_type if count == 1 else f"{display_type} ({count})"
 
+    # --- Sort order (ORDER BY clause for DAX queries) ---
+    query_obj = vis.get("query", {})
+    sort_definition = query_obj.get("sortDefinition", {})
+    sort_order = _extract_sort_order(sort_definition)
+
     # --- Query state fields (visual data roles) ---
-    query_state = vis.get("query", {}).get("queryState", {})
+    query_state = query_obj.get("queryState", {})
     for role, role_data in query_state.items():
         well_name = get_well_name(role)  # Human-readable well assignment (e.g. "X-axis", "Legend")
         projections = role_data.get("projections", [])
@@ -540,6 +581,11 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                 "Semantic Model Source": model_source,
                 "Z Index": z_index,
             })
+
+    # Stamp sort order on every row for this visual (sort is a visual-level property)
+    if sort_order:
+        for row in rows:
+            row["Sort Order"] = sort_order
 
     return rows
 
@@ -912,6 +958,7 @@ def extract_metadata(report_root: str, model_root: str,
         "Data Type",
         "Semantic Model Source",
         "Z Index",
+        "Sort Order",
     ])
 
     pseudo_visuals = {'Page Filters', 'Report Filters'}

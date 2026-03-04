@@ -218,13 +218,15 @@ def _measure_expression(m, model=None):
 # =============================================================================
 
 def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
-                    model=None, matrix_columns=None):
+                    model=None, matrix_columns=None, sort_order=None):
     """
     Build a DAX query string based on the classified fields.
 
     Args:
         model: Optional SemanticModel for column type lookup (implicit measure conversion)
         matrix_columns: Optional list of matrix column-axis fields
+        sort_order: Optional DAX ORDER BY clause string (e.g. "[Revenue Won] DESC").
+                    Appended to SUMMARIZECOLUMNS-based queries (Patterns 3 and 3M).
 
     Returns: (pattern_name, dax_query_string)
     """
@@ -300,6 +302,8 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
         pairs = [f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in measures]
         all_args = cols + pairs
         dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+        if sort_order:
+            dax += f"\nORDER BY {sort_order}"
         return "Pattern 3M: Matrix Summary", dax
 
     # ----- Pattern 3: Columns + Measures (Most Visuals) -----
@@ -308,6 +312,8 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
         pairs = [f"    \"{m['ui_name']}\", {_measure_expression(m, model)}" for m in measures]
         all_args = cols + pairs
         dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+        if sort_order:
+            dax += f"\nORDER BY {sort_order}"
         return "Pattern 3: Columns + Measures", dax
 
     return "Unknown", "-- Could not determine DAX pattern for this visual"
@@ -424,7 +430,7 @@ def auto_detect_flat_measures(measures, matrix_columns, model) -> list:
 
 
 def build_matrix_pivot_query(grouping, measures, matrix_columns, column_values,
-                             model=None, flat_measures=None):
+                             model=None, flat_measures=None, sort_order=None):
     """Generate a single pivoted CALCULATE query for a Matrix visual.
 
     For each pivot measure x each column value, creates a named CALCULATE expression
@@ -506,6 +512,8 @@ def build_matrix_pivot_query(grouping, measures, matrix_columns, column_values,
 
     all_args = cols + calc_parts + flat_parts
     dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+    if sort_order:
+        dax += f"\nORDER BY {sort_order}"
     if auto_flat:
         return "Pattern 3M: Matrix Pivot", dax, auto_flat
     return "Pattern 3M: Matrix Pivot", dax
@@ -584,11 +592,15 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
         else:
             column_filters.append(expr)
 
-    # Strip any trailing filter comments from the base DAX
+    # Strip any trailing filter comments and extract ORDER BY (must stay outside CALCULATETABLE)
     lines = base_dax.split("\n")
     core_lines = []
+    trailing_order_by = ""
     for line in lines:
         if line.strip().startswith("-- Filter:"):
+            break
+        if line.strip().upper().startswith("ORDER BY"):
+            trailing_order_by = line.strip()
             break
         core_lines.append(line)
     clean_dax = "\n".join(core_lines).rstrip()
@@ -604,10 +616,13 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
             measure_ref = measure_match.group(1)
             # For single measure, all filters (column + measure) go in CALCULATE
             all_args = ",\n    ".join(filter_exprs)
-            return (f"EVALUATE\n"
-                    f"{{ CALCULATE({measure_ref},\n"
-                    f"    {all_args}\n"
-                    f") }}")
+            result = (f"EVALUATE\n"
+                      f"{{ CALCULATE({measure_ref},\n"
+                      f"    {all_args}\n"
+                      f") }}")
+            if trailing_order_by:
+                result += f"\n{trailing_order_by}"
+            return result
 
     # Pattern 1: Multiple Measures → CALCULATE for each measure in ROW
     if pattern == "Pattern 1: Multiple Measures":
@@ -640,7 +655,10 @@ def wrap_dax_with_filters(base_dax: str, filter_exprs: list, pattern: str) -> st
                   f"    {condition}\n"
                   f")")
 
-    return f"EVALUATE\n{result}"
+    final = f"EVALUATE\n{result}"
+    if trailing_order_by:
+        final += f"\n{trailing_order_by}"
+    return final
 
 
 def wrap_dax_with_having(dax: str, having_exprs: list) -> str:
@@ -659,11 +677,15 @@ def wrap_dax_with_having(dax: str, having_exprs: list) -> str:
     if not having_exprs:
         return dax
 
-    # Strip any trailing filter comments
+    # Strip any trailing filter comments; extract ORDER BY (must stay outside FILTER)
     lines = dax.split("\n")
     core_lines = []
+    trailing_order_by = ""
     for line in lines:
         if line.strip().startswith("-- Filter:"):
+            break
+        if line.strip().upper().startswith("ORDER BY"):
+            trailing_order_by = line.strip()
             break
         core_lines.append(line)
     clean_dax = "\n".join(core_lines).rstrip()
@@ -677,11 +699,14 @@ def wrap_dax_with_having(dax: str, having_exprs: list) -> str:
     # Build combined condition with &&
     condition = " && ".join(having_exprs)
 
-    return (f"EVALUATE\n"
-            f"FILTER(\n"
-            f"    {inner},\n"
-            f"    {condition}\n"
-            f")")
+    final = (f"EVALUATE\n"
+             f"FILTER(\n"
+             f"    {inner},\n"
+             f"    {condition}\n"
+             f")")
+    if trailing_order_by:
+        final += f"\n{trailing_order_by}"
+    return final
 
 
 def parse_filter_column_refs(filter_exprs):
@@ -803,8 +828,10 @@ def build_bookmark_queries(bookmarks, visuals, page_filters, model=None):
             if page_name in page_filters:
                 filters.extend(page_filters[page_name])
 
+            sort_order = data.get("sort_order", "")
             pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields,
-                                                visual_type, model, matrix_columns=matrix_columns)
+                                                visual_type, model, matrix_columns=matrix_columns,
+                                                sort_order=sort_order)
 
             if pattern == "Unknown":
                 continue
@@ -891,6 +918,8 @@ def read_extractor_output(filepath):
     z_index_idx = col_map.get("Z Index")
     # "Well" — optional, added for well-assignment-based classification
     well_idx = col_map.get("Well")
+    # "Sort Order" — optional, DAX ORDER BY expression extracted from sortDefinition
+    sort_order_idx = col_map.get("Sort Order")
     has_visual_id = visual_id_idx is not None
 
     required = ["Page Name", "Visual/Table Name in PBI", "Visual Type",
@@ -916,6 +945,7 @@ def read_extractor_output(filepath):
         col_sm = row[col_map["Column in the Semantic Model"]]
         visual_id = (row[visual_id_idx] if has_visual_id else "") or ""
         z_index = int(row[z_index_idx] or 0) if z_index_idx is not None else 0
+        sort_order = (row[sort_order_idx] if sort_order_idx is not None else "") or ""
 
         if not page or not visual_name:
             continue
@@ -951,8 +981,12 @@ def read_extractor_output(filepath):
                 "visual_name": visual_name,
                 "visual_id": visual_id,
                 "z_index": z_index,
+                "sort_order": sort_order,
                 "fields": [],
             }
+        elif sort_order and not visuals[key].get("sort_order"):
+            # First non-empty sort_order wins (they're all the same for a given visual)
+            visuals[key]["sort_order"] = sort_order
         visuals[key]["fields"].append(field)
 
     # Read Bookmarks sheet if present
@@ -1147,8 +1181,10 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
             filters.extend(page_filters[page])
 
         # Build base DAX query
+        sort_order = data.get("sort_order", "")
         pattern, dax = build_dax_query(grouping, measures, filters, slicer_fields,
-                                       visual_type, model, matrix_columns=matrix_columns)
+                                       visual_type, model, matrix_columns=matrix_columns,
+                                       sort_order=sort_order)
 
         # Add filter comments
         dax = add_filter_comments(dax, filters)
@@ -1384,8 +1420,10 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     if page in page_filters:
         filters.extend(page_filters[page])
 
+    sort_order = data.get("sort_order", "")
     pattern, base_dax = build_dax_query(grouping, measures, filters, slicer_fields,
-                                        visual_type, model, matrix_columns=matrix_columns)
+                                        visual_type, model, matrix_columns=matrix_columns,
+                                        sort_order=sort_order)
 
     # --- Matrix pivot support ---
     values_query = ""
@@ -1401,7 +1439,7 @@ def get_single_visual_query(visuals, page_filters, visual_search,
         if column_values:
             pivot_result = build_matrix_pivot_query(
                 grouping, measures, matrix_columns, column_values, model,
-                flat_measures=flat_measures
+                flat_measures=flat_measures, sort_order=sort_order
             )
             # 3-tuple when auto-detection found flat measures, 2-tuple otherwise
             if len(pivot_result) == 3:
