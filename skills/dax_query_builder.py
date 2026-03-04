@@ -756,12 +756,33 @@ def check_filter_redundancy(measures, filter_exprs, model=None):
             continue
 
         formula_upper = formula.upper()
+
+        # Extract tables that have ALL their filters removed via ALL('Table') or
+        # REMOVEFILTERS('Table') — these patterns clear the entire table context,
+        # making any external filter targeting that table's columns redundant.
+        # Note: ALL('Table'[Column]) only clears one column, so we match only
+        # bare ALL('Table') / ALL(Table) without a column bracket following.
+        all_table_pattern = re.compile(
+            r"(?:ALL|REMOVEFILTERS)\s*\(\s*'([^']+)'\s*\)"  # ALL('Table') or REMOVEFILTERS('Table')
+            r"|(?:ALL|REMOVEFILTERS)\s*\(\s*(\w+)\s*\)"     # ALL(Table) unquoted
+        )
+        all_cleared_tables = set()
+        for match in all_table_pattern.finditer(formula_upper):
+            table = (match.group(1) or match.group(2) or "").strip()
+            if table:
+                all_cleared_tables.add(table)
+
         for (ftable, fcol) in filter_refs:
-            # Check 'Table'[Column], Table[Column], and bare [Column] (same-table)
-            if (f"'{ftable}'[{fcol}]".upper() in formula_upper or
+            # Check 1: explicit column reference in formula ('Table'[Column] etc.)
+            col_in_formula = (
+                f"'{ftable}'[{fcol}]".upper() in formula_upper or
                 f"{ftable}[{fcol}]".upper() in formula_upper or
                 (f"[{fcol}]".upper() in formula_upper and
-                 m.get("table_sm", "").upper() == ftable.upper())):
+                 m.get("table_sm", "").upper() == ftable.upper())
+            )
+            # Check 2: measure clears ALL filters from the entire filter target table
+            whole_table_cleared = ftable.upper() in all_cleared_tables
+            if col_in_formula or whole_table_cleared:
                 warnings.append({
                     "measure_name": m.get("col_sm", ""),
                     "filter_expr": next((e for e in filter_exprs if f"'{ftable}'[{fcol}]" in e), filter_exprs[0]),
