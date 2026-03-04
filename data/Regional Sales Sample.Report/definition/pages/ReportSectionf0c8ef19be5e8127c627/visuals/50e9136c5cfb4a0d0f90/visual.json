@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "50e9136c5cfb4a0d0f90",
   "position": {
-    "x": 17.633711507293356,
-    "y": 118.24959481361425,
-    "z": 16000,
-    "height": 291.47487844408425,
-    "width": 298.21717990275528,
-    "tabOrder": 5000
+    "x": 17.63,
+    "y": 118.25,
+    "z": 16000.0,
+    "width": 298.22,
+    "height": 291.47
   },
   "visual": {
     "visualType": "barChart",
@@ -53,29 +52,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Aggregation": {
-                "Expression": {
-                  "Column": {
-                    "Expression": {
-                      "SourceRef": {
-                        "Entity": "Opportunities"
-                      }
-                    },
-                    "Property": "DaysToClose"
-                  }
-                },
-                "Function": 1
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

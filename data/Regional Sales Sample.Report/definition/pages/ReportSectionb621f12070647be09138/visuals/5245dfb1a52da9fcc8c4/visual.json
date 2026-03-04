@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "5245dfb1a52da9fcc8c4",
   "position": {
-    "x": 867.53864447086812,
-    "y": 301.35552913198575,
-    "z": 6000,
-    "height": 364.51843043995245,
-    "width": 394.95838287752679,
-    "tabOrder": 1000
+    "x": 867.54,
+    "y": 301.36,
+    "z": 6000.0,
+    "width": 394.96,
+    "height": 364.52
   },
   "visual": {
     "visualType": "lineStackedColumnComboChart",
@@ -40,40 +39,7 @@
                   "Property": "Owner"
                 }
               },
-              "queryRef": "Owners.Owner",
-              "active": false
-            }
-          ]
-        },
-        "Tooltips": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue In Pipeline"
-                }
-              },
-              "queryRef": "Opportunities.Revenue In Pipeline",
-              "displayName": "Qualified pipeline"
-            },
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue Won"
-                }
-              },
-              "queryRef": "Opportunities.Revenue Won",
-              "displayName": "Revenue won"
+              "queryRef": "Owners.Owner"
             }
           ]
         },
@@ -126,24 +92,39 @@
               "displayName": "Goal"
             }
           ]
-        }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue Won"
-              }
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue In Pipeline"
+                }
+              },
+              "queryRef": "Opportunities.Revenue In Pipeline",
+              "displayName": "Qualified pipeline"
             },
-            "direction": "Descending"
-          }
-        ]
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue Won"
+                }
+              },
+              "queryRef": "Opportunities.Revenue Won",
+              "displayName": "Revenue won"
+            }
+          ]
+        }
       }
     },
     "objects": {
@@ -904,17 +885,6 @@
     "filters": [
       {
         "name": "Filter",
-        "field": {
-          "Measure": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Rev Goal"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -948,9 +918,20 @@
               }
             }
           ]
+        },
+        "type": "Advanced",
+        "howCreated": 0,
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Owners"
+              }
+            },
+            "Property": "Rev Goal"
+          }
         }
       }
     ]
-  },
-  "isHidden": true
+  }
 }

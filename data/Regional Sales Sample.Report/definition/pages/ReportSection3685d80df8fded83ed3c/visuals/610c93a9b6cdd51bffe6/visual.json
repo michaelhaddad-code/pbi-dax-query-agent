@@ -1,18 +1,34 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "610c93a9b6cdd51bffe6",
   "position": {
-    "x": 16.741973840665874,
-    "y": 442.140309155767,
-    "z": 18000,
-    "height": 254.17360285374556,
-    "width": 301.35552913198575,
-    "tabOrder": 6000
+    "x": 16.74,
+    "y": 442.14,
+    "z": 18000.0,
+    "width": 301.36,
+    "height": 254.17
   },
   "visual": {
     "visualType": "lineChart",
     "query": {
       "queryState": {
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Close %"
+                }
+              },
+              "queryRef": "Opportunities.Close %"
+            }
+          ]
+        },
         "Category": {
           "projections": [
             {
@@ -28,23 +44,6 @@
               },
               "queryRef": "Opportunity Calendar.YEAR MONTH",
               "active": true
-            }
-          ]
-        },
-        "Y": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Close %"
-                }
-              },
-              "queryRef": "Opportunities.Close %"
             }
           ]
         }
@@ -255,17 +254,6 @@
     "filters": [
       {
         "name": "Filter02ce78c592feb6736c1e",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunity Calendar"
-              }
-            },
-            "Property": "RELATIVE MONTH"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -300,7 +288,18 @@
             }
           ]
         },
-        "howCreated": "User"
+        "type": "Advanced",
+        "howCreated": 1,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunity Calendar"
+              }
+            },
+            "Property": "RELATIVE MONTH"
+          }
+        }
       }
     ]
   }

@@ -325,17 +325,31 @@ def parse_visual_from_metadata(metadata_excel, visual_name):
 
     visuals, _, _, _ = read_extractor_output(metadata_excel)
 
-    # Find the visual by name (case-insensitive partial match)
+    # Find the visual by name (case-insensitive, supports "Page / Visual" format)
     target = visual_name.lower().strip()
     matched_key = None
+
+    # First try exact match on "page / visual" combined key
     for key, data in visuals.items():
-        if data["visual_name"].lower().strip() == target:
+        page = key[0]
+        full_name = f"{page} / {data['visual_name']}".lower()
+        if full_name == target:
             matched_key = key
             break
-    # Partial match fallback
+
+    # Then try exact match on visual name alone
     if not matched_key:
         for key, data in visuals.items():
-            if target in data["visual_name"].lower():
+            if data["visual_name"].lower().strip() == target:
+                matched_key = key
+                break
+
+    # Partial match fallback (also checks "page / visual" combined)
+    if not matched_key:
+        for key, data in visuals.items():
+            page = key[0]
+            full_name = f"{page} / {data['visual_name']}".lower()
+            if target in data["visual_name"].lower() or target in full_name:
                 matched_key = key
                 break
 

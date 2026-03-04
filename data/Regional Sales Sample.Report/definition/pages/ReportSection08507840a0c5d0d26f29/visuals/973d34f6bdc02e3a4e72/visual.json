@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "973d34f6bdc02e3a4e72",
   "position": {
-    "x": 648.39127192243859,
-    "y": 100.4892306346148,
-    "z": 7000,
-    "height": 60.546034012093159,
-    "width": 295.17921153112536,
-    "tabOrder": 5000
+    "x": 648.39,
+    "y": 100.49,
+    "z": 7000.0,
+    "width": 295.18,
+    "height": 60.55
   },
   "visual": {
     "visualType": "kpi",
@@ -52,9 +51,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -395,18 +391,6 @@
   "filterConfig": {
     "filters": [
       {
-        "name": "e7177290cbae71b09d19",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunity Calendar"
-              }
-            },
-            "Property": "RELATIVE MONTH"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -440,6 +424,19 @@
               }
             }
           ]
+        },
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunity Calendar"
+              }
+            },
+            "Property": "RELATIVE MONTH"
+          }
         }
       }
     ]

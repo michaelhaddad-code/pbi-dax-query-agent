@@ -1,18 +1,34 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "91d4aae6951b9a7f20d2",
   "position": {
-    "x": 16.585915492957746,
-    "y": 87.977464788732391,
-    "z": 15000,
-    "height": 339.65070422535211,
-    "width": 616.56338028169012,
-    "tabOrder": 3000
+    "x": 16.59,
+    "y": 87.98,
+    "z": 15000.0,
+    "width": 616.56,
+    "height": 339.65
   },
   "visual": {
     "visualType": "scatterChart",
     "query": {
       "queryState": {
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Opportunity Count"
+                }
+              },
+              "queryRef": "Opportunities.Opportunity Count"
+            }
+          ]
+        },
         "Play": {
           "projections": [
             {
@@ -27,6 +43,24 @@
                 }
               },
               "queryRef": "Opportunity Calendar.YEAR MONTH"
+            }
+          ]
+        },
+        "X": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue Won"
+                }
+              },
+              "queryRef": "Opportunities.Revenue Won",
+              "active": true
             }
           ]
         },
@@ -61,41 +95,6 @@
                 }
               },
               "queryRef": "Opportunities.Revenue Won Average Deal Size"
-            }
-          ]
-        },
-        "X": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue Won"
-                }
-              },
-              "queryRef": "Opportunities.Revenue Won",
-              "active": true
-            }
-          ]
-        },
-        "Y": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Opportunity Count"
-                }
-              },
-              "queryRef": "Opportunities.Opportunity Count"
             }
           ]
         }
@@ -332,6 +331,9 @@
     "filters": [
       {
         "name": "Filter799aec4798fb75202573",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": false,
         "ordinal": 0,
         "field": {
           "Column": {
@@ -342,12 +344,13 @@
             },
             "Property": "Manager"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filterd01d8eb8a807abf03efd",
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
         "ordinal": 1,
         "field": {
           "Measure": {
@@ -358,11 +361,13 @@
             },
             "Property": "Opportunity Count"
           }
-        },
-        "type": "Advanced"
+        }
       },
       {
         "name": "Filter05535c7b85d34d3dead2",
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
         "ordinal": 2,
         "field": {
           "Measure": {
@@ -373,23 +378,10 @@
             },
             "Property": "Revenue Won"
           }
-        },
-        "type": "Advanced"
+        }
       },
       {
         "name": "Filter0896a65333b9569f4a80",
-        "ordinal": 3,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunity Calendar"
-              }
-            },
-            "Property": "RELATIVE MONTH"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -424,10 +416,25 @@
             }
           ]
         },
-        "howCreated": "User"
+        "type": "Advanced",
+        "howCreated": 1,
+        "ordinal": 3,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunity Calendar"
+              }
+            },
+            "Property": "RELATIVE MONTH"
+          }
+        }
       },
       {
         "name": "Filter458925e49dd909f18d13",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
         "ordinal": 4,
         "field": {
           "Column": {
@@ -438,10 +445,8 @@
             },
             "Property": "YEAR MONTH"
           }
-        },
-        "type": "Categorical"
+        }
       }
-    ],
-    "filterSortOrder": "Custom"
+    ]
   }
 }

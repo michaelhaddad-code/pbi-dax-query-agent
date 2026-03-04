@@ -1,35 +1,17 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "8a0ce2360f3fa1944ab8",
   "position": {
-    "x": 962.82565704943192,
-    "y": 90.646051151721821,
-    "z": 1000,
-    "height": 68.077661683666136,
-    "width": 299.53837485774721,
-    "tabOrder": 9000
+    "x": 962.83,
+    "y": 90.65,
+    "z": 1000.0,
+    "width": 299.54,
+    "height": 68.08
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
-        "Indicator": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Forecast by Win/Loss Ratio"
-                }
-              },
-              "queryRef": "Opportunities.Forecast by Win/Loss Ratio"
-            }
-          ]
-        },
         "TrendLine": {
           "projections": [
             {
@@ -46,25 +28,24 @@
               "queryRef": "Opportunities.Blank"
             }
           ]
+        },
+        "Indicator": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Forecast by Win/Loss Ratio"
+                }
+              },
+              "queryRef": "Opportunities.Forecast by Win/Loss Ratio"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Forecast %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

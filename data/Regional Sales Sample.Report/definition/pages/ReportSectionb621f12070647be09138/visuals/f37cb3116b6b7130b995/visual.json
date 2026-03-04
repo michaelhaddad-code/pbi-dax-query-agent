@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "f37cb3116b6b7130b995",
   "position": {
-    "x": 17.635968092820885,
-    "y": 173.57505438723712,
-    "z": 20000,
-    "height": 254.32922407541696,
-    "width": 393.56055112400287,
-    "tabOrder": 8000
+    "x": 17.64,
+    "y": 173.58,
+    "z": 20000.0,
+    "width": 393.56,
+    "height": 254.33
   },
   "visual": {
     "visualType": "funnel",
@@ -48,23 +47,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Column": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Sales Stage"
-              }
-            },
-            "direction": "Ascending"
-          }
-        ]
       }
     },
     "objects": {
@@ -615,17 +597,6 @@
     "filters": [
       {
         "name": "Filter",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunities"
-              }
-            },
-            "Property": "Status"
-          }
-        },
-        "type": "Categorical",
         "filter": {
           "Version": 2,
           "From": [
@@ -665,7 +636,18 @@
             }
           ]
         },
-        "howCreated": "User"
+        "type": "Categorical",
+        "howCreated": 1,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunities"
+              }
+            },
+            "Property": "Status"
+          }
+        }
       }
     ]
   }

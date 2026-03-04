@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "01af2f16cdd3b0443588",
   "position": {
-    "x": 14.077393075356415,
-    "y": 267.47046843177191,
-    "z": 9000,
-    "height": 431.70672097759672,
-    "width": 302.92464358452139,
-    "tabOrder": 5000
+    "x": 14.08,
+    "y": 267.47,
+    "z": 9000.0,
+    "width": 302.92,
+    "height": 431.71
   },
   "visual": {
     "visualType": "lineStackedColumnComboChart",
@@ -65,24 +64,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue Won"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

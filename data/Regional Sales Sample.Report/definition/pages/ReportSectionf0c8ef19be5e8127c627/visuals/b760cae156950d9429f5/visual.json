@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "b760cae156950d9429f5",
   "position": {
-    "x": 331.49075081610442,
-    "y": 118.38955386289445,
-    "z": 15000,
-    "height": 582.19804134929268,
-    "width": 931.79542981501629,
-    "tabOrder": 0
+    "x": 331.49,
+    "y": 118.39,
+    "z": 15000.0,
+    "width": 931.8,
+    "height": 582.2
   },
   "visual": {
     "visualType": "keyDriversVisual",
@@ -182,24 +181,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Column": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Territories"
-                  }
-                },
-                "Property": "Territory"
-              }
-            },
-            "direction": "Ascending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -463,7 +444,9 @@
   "filterConfig": {
     "filters": [
       {
-        "name": "1bbc53af10dcaf5e3f11",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -473,12 +456,12 @@
             },
             "Property": "Product"
           }
-        },
-        "type": "Categorical",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "7a72f9baec1c186d9981",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -488,12 +471,12 @@
             },
             "Property": "Owner"
           }
-        },
-        "type": "Categorical",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "a65c5d6b4cb83b679d46",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -503,12 +486,12 @@
             },
             "Property": "Manager"
           }
-        },
-        "type": "Categorical",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "73d88f208b56146e3c78",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -518,13 +501,12 @@
             },
             "Property": "State or Province"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "b37a8bf05a2b4194c70f",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -534,12 +516,12 @@
             },
             "Property": "Purchase Process"
           }
-        },
-        "type": "Categorical",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "e7d2016669d60bda6df3",
+        "type": "Categorical",
+        "howCreated": 0,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -549,9 +531,7 @@
             },
             "Property": "Decision Maker Identified"
           }
-        },
-        "type": "Categorical",
-        "isHiddenInViewMode": true
+        }
       }
     ]
   }

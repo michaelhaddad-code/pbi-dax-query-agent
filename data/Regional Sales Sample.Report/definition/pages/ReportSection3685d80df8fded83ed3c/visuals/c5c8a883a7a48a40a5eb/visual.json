@@ -1,35 +1,17 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "c5c8a883a7a48a40a5eb",
   "position": {
-    "x": 333.1605633802817,
-    "y": 90.861971830985922,
-    "z": 6000,
-    "height": 67.785915492957741,
-    "width": 299.26760563380282,
-    "tabOrder": 11000
+    "x": 333.16,
+    "y": 90.86,
+    "z": 6000.0,
+    "width": 299.27,
+    "height": 67.79
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
-        "Indicator": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue Open"
-                }
-              },
-              "queryRef": "Opportunities.Revenue Open"
-            }
-          ]
-        },
         "TrendLine": {
           "projections": [
             {
@@ -46,10 +28,24 @@
               "queryRef": "Opportunities.Blank"
             }
           ]
+        },
+        "Indicator": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue Open"
+                }
+              },
+              "queryRef": "Opportunities.Revenue Open"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "isDefaultSort": true
       }
     },
     "objects": {

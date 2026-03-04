@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "954d6f9432c76cbb2ca1",
   "position": {
-    "x": 15.321001088139282,
-    "y": 118.38955386289445,
-    "z": 1000,
-    "height": 580.80522306855278,
-    "width": 1246.5723612622414,
-    "tabOrder": 0
+    "x": 15.32,
+    "y": 118.39,
+    "z": 1000.0,
+    "width": 1246.57,
+    "height": 580.81
   },
   "visual": {
     "visualType": "qnaVisual",
@@ -125,24 +124,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Column": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Accounts"
-                  }
-                },
-                "Property": "Industry"
-              }
-            },
-            "direction": "Ascending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

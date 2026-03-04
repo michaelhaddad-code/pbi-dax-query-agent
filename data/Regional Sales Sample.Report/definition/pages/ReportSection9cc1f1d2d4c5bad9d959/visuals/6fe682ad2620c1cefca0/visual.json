@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "6fe682ad2620c1cefca0",
   "position": {
-    "x": 496.43605870020968,
-    "y": 178.00139762403913,
-    "z": 21000,
-    "height": 282.6554856743536,
-    "width": 449.92313067784767,
-    "tabOrder": 2000
+    "x": 496.44,
+    "y": 178.0,
+    "z": 21000.0,
+    "width": 449.92,
+    "height": 282.66
   },
   "visual": {
     "visualType": "ribbonChart",
@@ -31,23 +30,6 @@
             }
           ]
         },
-        "Series": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Industries"
-                    }
-                  },
-                  "Property": "Industry"
-                }
-              },
-              "queryRef": "Industries.Industry"
-            }
-          ]
-        },
         "Y": {
           "projections": [
             {
@@ -62,6 +44,23 @@
                 }
               },
               "queryRef": "Opportunities.Revenue Open"
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Industries"
+                    }
+                  },
+                  "Property": "Industry"
+                }
+              },
+              "queryRef": "Industries.Industry"
             }
           ]
         }
@@ -479,6 +478,9 @@
     "filters": [
       {
         "name": "Filterde1d162a090e2c24235a",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": false,
         "ordinal": 0,
         "field": {
           "Column": {
@@ -489,12 +491,13 @@
             },
             "Property": "Account Name"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filtere51599c688bb1fb5ee41",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": false,
         "ordinal": 1,
         "field": {
           "Measure": {
@@ -505,24 +508,10 @@
             },
             "Property": "Close %"
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filterb7101e64d7144f00fcb0",
-        "ordinal": 4,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Industries"
-              }
-            },
-            "Property": "Industry"
-          }
-        },
-        "type": "TopN",
         "filter": {
           "Version": 2,
           "From": [
@@ -609,9 +598,22 @@
               }
             }
           ]
+        },
+        "type": "TopN",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
+        "ordinal": 4,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Industries"
+              }
+            },
+            "Property": "Industry"
+          }
         }
       }
-    ],
-    "filterSortOrder": "Custom"
+    ]
   }
 }

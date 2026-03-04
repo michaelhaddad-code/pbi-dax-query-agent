@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "e9ee7b2d33b6ec76638d",
   "position": {
-    "x": 17.635968092820885,
-    "y": 442.75562001450322,
-    "z": 21000,
-    "height": 252.47280638143582,
-    "width": 393.56055112400287,
-    "tabOrder": 5000
+    "x": 17.64,
+    "y": 442.76,
+    "z": 21000.0,
+    "width": 393.56,
+    "height": 252.47
   },
   "visual": {
     "visualType": "pivotTable",
@@ -40,8 +39,7 @@
                   "Property": "State or Province"
                 }
               },
-              "queryRef": "Accounts.State or Province",
-              "active": false
+              "queryRef": "Accounts.State or Province"
             }
           ]
         },
@@ -89,61 +87,8 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue In Pipeline"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
-    "expansionStates": [
-      {
-        "roles": [
-          "Rows"
-        ],
-        "levels": [
-          {
-            "queryRefs": [
-              "Territories.Territory"
-            ],
-            "isCollapsed": true,
-            "identityKeys": [
-              {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Territories"
-                    }
-                  },
-                  "Property": "Territory"
-                }
-              }
-            ],
-            "isPinned": true
-          },
-          {
-            "queryRefs": [
-              "Accounts.State or Province"
-            ],
-            "isCollapsed": true,
-            "isPinned": true
-          }
-        ],
-        "root": {}
-      }
-    ],
     "objects": {
       "values": [
         {

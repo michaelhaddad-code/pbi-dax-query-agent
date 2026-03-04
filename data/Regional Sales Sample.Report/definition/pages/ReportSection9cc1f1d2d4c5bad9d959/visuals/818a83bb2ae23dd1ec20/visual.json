@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "818a83bb2ae23dd1ec20",
   "position": {
-    "x": 16.995108315863032,
-    "y": 178.00139762403913,
-    "z": 2000,
-    "height": 282.6554856743536,
-    "width": 466.02375960866527,
-    "tabOrder": 3000
+    "x": 17.0,
+    "y": 178.0,
+    "z": 2000.0,
+    "width": 466.02,
+    "height": 282.66
   },
   "visual": {
     "visualType": "barChart",
@@ -40,8 +39,24 @@
                   "Property": "Product"
                 }
               },
-              "queryRef": "Products.Product",
-              "active": false
+              "queryRef": "Products.Product"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue Open"
+                }
+              },
+              "queryRef": "Opportunities.Revenue Open"
             }
           ]
         },
@@ -91,42 +106,7 @@
               "queryRef": "Opportunities.Opportunity Count In Pipeline"
             }
           ]
-        },
-        "Y": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue Open"
-                }
-              },
-              "queryRef": "Opportunities.Revenue Open"
-            }
-          ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue Open"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -418,6 +398,13 @@
                       }
                     }
                   }
+                }
+              }
+            },
+            "showAllDataPoints": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
                 }
               }
             }
@@ -879,7 +866,9 @@
   "filterConfig": {
     "filters": [
       {
-        "name": "9001f6dd3a42898a4ccf",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Aggregation": {
             "Expression": {
@@ -894,13 +883,12 @@
             },
             "Function": 0
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "2f0e6a4aab5745eadf29",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Aggregation": {
             "Expression": {
@@ -915,13 +903,12 @@
             },
             "Function": 3
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "eee4b323686c0f9232c9",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Aggregation": {
             "Expression": {
@@ -936,13 +923,12 @@
             },
             "Function": 3
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "1d6bd6a9663ee4e60998",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Aggregation": {
             "Expression": {
@@ -957,13 +943,12 @@
             },
             "Function": 3
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       },
       {
-        "name": "8d4ae7253d9c1aa7825b",
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
         "field": {
           "Column": {
             "Expression": {
@@ -973,10 +958,7 @@
             },
             "Property": "OpportunitySeq"
           }
-        },
-        "type": "Advanced",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
+        }
       }
     ]
   }

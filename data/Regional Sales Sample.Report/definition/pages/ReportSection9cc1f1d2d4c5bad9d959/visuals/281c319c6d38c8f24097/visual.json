@@ -1,35 +1,17 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "281c319c6d38c8f24097",
   "position": {
-    "x": 962.87696051481453,
-    "y": 94.557115507542164,
-    "z": 17000,
-    "height": 68.077661683666136,
-    "width": 299.53837485774721,
-    "tabOrder": 4000
+    "x": 962.88,
+    "y": 94.56,
+    "z": 17000.0,
+    "width": 299.54,
+    "height": 68.08
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
-        "Indicator": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue In Pipeline"
-                }
-              },
-              "queryRef": "Opportunities.Revenue In Pipeline"
-            }
-          ]
-        },
         "TrendLine": {
           "projections": [
             {
@@ -46,25 +28,24 @@
               "queryRef": "Opportunities.Blank"
             }
           ]
+        },
+        "Indicator": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue In Pipeline"
+                }
+              },
+              "queryRef": "Opportunities.Revenue In Pipeline"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Forecast %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

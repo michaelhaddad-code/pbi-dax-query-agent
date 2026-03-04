@@ -1,14 +1,14 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "f0d93785fed7466d3d51",
   "position": {
-    "x": 0,
-    "y": 476.7570486591477,
-    "z": 3000,
-    "height": 14.922742232386895,
-    "width": 1245.6562726613488,
-    "tabOrder": 3000
+    "x": 0.0,
+    "y": 476.76,
+    "z": 3000.0,
+    "width": 1245.66,
+    "height": 14.92
   },
+  "parentGroupName": "16c33421cba4471a02a9",
   "visual": {
     "visualType": "actionButton",
     "objects": {
@@ -87,6 +87,5 @@
       ]
     },
     "drillFilterOtherVisuals": true
-  },
-  "parentGroupName": "16c33421cba4471a02a9"
+  }
 }

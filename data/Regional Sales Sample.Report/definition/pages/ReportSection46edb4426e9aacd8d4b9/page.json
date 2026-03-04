@@ -1,26 +1,54 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.0.0/schema.json",
   "name": "ReportSection46edb4426e9aacd8d4b9",
   "displayName": "Sales Discounting Insights",
-  "displayOption": "FitToPage",
-  "height": 720,
-  "width": 1280,
+  "width": 1280.0,
+  "height": 720.0,
+  "displayOption": 1,
+  "objects": {
+    "background": [
+      {
+        "properties": {
+          "color": {
+            "solid": {
+              "color": {
+                "expr": {
+                  "ThemeDataColor": {
+                    "ColorId": 0,
+                    "Percent": -0.1
+                  }
+                }
+              }
+            }
+          },
+          "transparency": {
+            "expr": {
+              "Literal": {
+                "Value": "20D"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "outspacePane": [
+      {
+        "properties": {
+          "width": {
+            "expr": {
+              "Literal": {
+                "Value": "201L"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
   "filterConfig": {
     "filters": [
       {
         "name": "Filter",
-        "ordinal": 0,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunities"
-              }
-            },
-            "Property": "Status"
-          }
-        },
-        "type": "Categorical",
         "filter": {
           "Version": 2,
           "From": [
@@ -64,12 +92,26 @@
             }
           ]
         },
-        "howCreated": "User",
+        "type": "Categorical",
+        "howCreated": 1,
         "isHiddenInViewMode": true,
-        "isLockedInViewMode": true
+        "isLockedInViewMode": true,
+        "ordinal": 0,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunities"
+              }
+            },
+            "Property": "Status"
+          }
+        }
       },
       {
         "name": "Filter7",
+        "type": "Categorical",
+        "howCreated": 1,
         "ordinal": 1,
         "field": {
           "Column": {
@@ -80,12 +122,12 @@
             },
             "Property": "Decision Maker Identified"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filter8",
+        "type": "Categorical",
+        "howCreated": 1,
         "ordinal": 2,
         "field": {
           "Column": {
@@ -96,12 +138,27 @@
             },
             "Property": "Purchase Process"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filter5",
+        "type": "Categorical",
+        "howCreated": 1,
+        "objects": {
+          "general": [
+            {
+              "properties": {
+                "requireSingleSelect": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "true"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
         "ordinal": 3,
         "field": {
           "Column": {
@@ -112,9 +169,12 @@
             },
             "Property": "Industry"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter3",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -129,10 +189,7 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter3",
+        },
         "ordinal": 4,
         "field": {
           "Column": {
@@ -143,9 +200,12 @@
             },
             "Property": "Manager"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter4",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -160,10 +220,7 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter4",
+        },
         "ordinal": 5,
         "field": {
           "Column": {
@@ -174,9 +231,12 @@
             },
             "Property": "Owner"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter2",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -191,10 +251,8 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter2",
+        },
+        "isLockedInViewMode": false,
         "ordinal": 6,
         "field": {
           "Column": {
@@ -205,9 +263,12 @@
             },
             "Property": "Product Category"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter1",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -222,10 +283,8 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter1",
+        },
+        "isLockedInViewMode": false,
         "ordinal": 7,
         "field": {
           "Column": {
@@ -236,9 +295,12 @@
             },
             "Property": "Product"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter6",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -253,10 +315,7 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter6",
+        },
         "ordinal": 8,
         "field": {
           "Column": {
@@ -267,164 +326,8 @@
             },
             "Property": "Purchase Process"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User",
-        "objects": {
-          "general": [
-            {
-              "properties": {
-                "requireSingleSelect": {
-                  "expr": {
-                    "Literal": {
-                      "Value": "true"
-                    }
-                  }
-                }
-              }
-            }
-          ]
-        }
-      }
-    ],
-    "filterSortOrder": "Custom"
-  },
-  "pageBinding": {
-    "name": "Pod",
-    "type": "Drillthrough",
-    "parameters": [
-      {
-        "name": "Param_Filter5",
-        "boundFilter": "Filter5",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Industries"
-              }
-            },
-            "Property": "Industry"
-          }
-        }
-      },
-      {
-        "name": "Param_Filter4",
-        "boundFilter": "Filter4",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Owner"
-          }
-        }
-      },
-      {
-        "name": "Param_Filter2",
-        "boundFilter": "Filter2",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Products"
-              }
-            },
-            "Property": "Product Category"
-          }
-        }
-      },
-      {
-        "name": "Param_Filter1",
-        "boundFilter": "Filter1",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Products"
-              }
-            },
-            "Property": "Product"
-          }
-        }
-      },
-      {
-        "name": "Param_Filter3",
-        "boundFilter": "Filter3",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Manager"
-          }
-        }
-      },
-      {
-        "name": "Param_Filter6",
-        "boundFilter": "Filter6",
-        "qnaSingleSelectRequired": true,
-        "fieldExpr": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunities"
-              }
-            },
-            "Property": "Purchase Process"
-          }
         }
       }
     ]
-  },
-  "objects": {
-    "background": [
-      {
-        "properties": {
-          "color": {
-            "solid": {
-              "color": {
-                "expr": {
-                  "ThemeDataColor": {
-                    "ColorId": 0,
-                    "Percent": -0.1
-                  }
-                }
-              }
-            }
-          },
-          "transparency": {
-            "expr": {
-              "Literal": {
-                "Value": "20D"
-              }
-            }
-          }
-        }
-      }
-    ],
-    "outspacePane": [
-      {
-        "properties": {
-          "width": {
-            "expr": {
-              "Literal": {
-                "Value": "201L"
-              }
-            }
-          }
-        }
-      }
-    ]
-  },
-  "visibility": "HiddenInViewMode",
-  "type": "Drillthrough"
+  }
 }

@@ -1,35 +1,17 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "fad4f0815aa586669b13",
   "position": {
-    "x": 646.43375082399473,
-    "y": 91.127224785761385,
-    "z": 26000,
-    "height": 67.396176664469351,
-    "width": 299.48582729070534,
-    "tabOrder": 10000
+    "x": 646.43,
+    "y": 91.13,
+    "z": 26000.0,
+    "width": 299.49,
+    "height": 67.4
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
-        "Indicator": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Close %"
-                }
-              },
-              "queryRef": "Opportunities.Close %"
-            }
-          ]
-        },
         "TrendLine": {
           "projections": [
             {
@@ -46,10 +28,24 @@
               "queryRef": "Opportunities.Blank"
             }
           ]
+        },
+        "Indicator": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Close %"
+                }
+              },
+              "queryRef": "Opportunities.Close %"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "isDefaultSort": true
       }
     },
     "objects": {

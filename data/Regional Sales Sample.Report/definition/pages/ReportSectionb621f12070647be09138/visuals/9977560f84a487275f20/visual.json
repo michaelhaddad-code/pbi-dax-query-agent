@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "9977560f84a487275f20",
   "position": {
-    "x": 866.092245311708,
-    "y": 204.35884439939178,
-    "z": 2000,
-    "height": 59.036999493157623,
-    "width": 396.39128231120117,
-    "tabOrder": -9001
+    "x": 866.09,
+    "y": 204.36,
+    "z": 2000.0,
+    "width": 396.39,
+    "height": 59.04
   },
   "visual": {
     "visualType": "columnChart",
@@ -53,29 +52,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Aggregation": {
-                "Expression": {
-                  "Column": {
-                    "Expression": {
-                      "SourceRef": {
-                        "Entity": "Opportunity Forecast Adjustment"
-                      }
-                    },
-                    "Property": "Blank"
-                  }
-                },
-                "Function": 0
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

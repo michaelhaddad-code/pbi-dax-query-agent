@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "bd762baaae85edc0f42f",
   "position": {
-    "x": 332.848948374761,
-    "y": 173.76673040152966,
-    "z": 21000,
-    "height": 253.30783938814534,
-    "width": 301.03250478011472,
-    "tabOrder": 7000
+    "x": 332.85,
+    "y": 173.77,
+    "z": 21000.0,
+    "width": 301.03,
+    "height": 253.31
   },
   "visual": {
     "visualType": "clusteredColumnChart",
@@ -40,8 +39,7 @@
                   "Property": "Owner"
                 }
               },
-              "queryRef": "Owners.Owner",
-              "active": false
+              "queryRef": "Owners.Owner"
             }
           ]
         },
@@ -62,24 +60,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Close %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -596,17 +576,6 @@
     "filters": [
       {
         "name": "Filter",
-        "field": {
-          "Measure": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Rev Goal"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -641,7 +610,18 @@
             }
           ]
         },
-        "howCreated": "User"
+        "type": "Advanced",
+        "howCreated": 1,
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Owners"
+              }
+            },
+            "Property": "Rev Goal"
+          }
+        }
       }
     ]
   }

@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "e9ee7b2d33b6ec76638d",
   "position": {
-    "x": 646.36288318144159,
-    "y": 229.06379453189726,
-    "z": 10000,
-    "height": 467.14167357083676,
-    "width": 616.13918806959407,
-    "tabOrder": 3000
+    "x": 646.36,
+    "y": 229.06,
+    "z": 10000.0,
+    "width": 616.14,
+    "height": 467.14
   },
   "visual": {
     "visualType": "tableEx",
@@ -82,23 +81,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue Open"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "objects": {

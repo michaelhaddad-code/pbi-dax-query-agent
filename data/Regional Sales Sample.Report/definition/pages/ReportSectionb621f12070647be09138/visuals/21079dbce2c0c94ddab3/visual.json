@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "21079dbce2c0c94ddab3",
   "position": {
-    "x": 866.092245311708,
-    "y": 170.62341611758742,
-    "z": 30000,
-    "height": 42.169285352255443,
-    "width": 396.39128231120117,
-    "tabOrder": -11001
+    "x": 866.09,
+    "y": 170.62,
+    "z": 30000.0,
+    "width": 396.39,
+    "height": 42.17
   },
   "visual": {
     "visualType": "textbox",
@@ -144,6 +143,32 @@
         }
       ]
     },
-    "drillFilterOtherVisuals": true
+    "drillFilterOtherVisuals": true,
+    "query": {
+      "queryState": {
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "Opportunity Forecast Adjustment.Forecast Adjustment Value"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Opportunity Forecast Adjustment.Forecast Adjustment Value)"
+            }
+          ]
+        }
+      }
+    }
   }
 }

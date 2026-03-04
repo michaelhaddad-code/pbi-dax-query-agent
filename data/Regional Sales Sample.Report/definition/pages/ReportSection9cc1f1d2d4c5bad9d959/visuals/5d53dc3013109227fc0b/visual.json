@@ -1,18 +1,34 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "5d53dc3013109227fc0b",
   "position": {
-    "x": 647.8137308626109,
-    "y": 94.557115507542164,
-    "z": 13000,
-    "height": 68.077661683666136,
-    "width": 299.53837485774721,
-    "tabOrder": 5000
+    "x": 647.81,
+    "y": 94.56,
+    "z": 13000.0,
+    "width": 299.54,
+    "height": 68.08
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
+        "TrendLine": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Blank"
+                }
+              },
+              "queryRef": "Opportunities.Blank"
+            }
+          ]
+        },
         "Indicator": {
           "projections": [
             {
@@ -34,27 +50,7 @@
               "queryRef": "Avg(Opportunities.Days Remaining In Pipeline)"
             }
           ]
-        },
-        "TrendLine": {
-          "projections": [
-            {
-              "field": {
-                "Column": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Blank"
-                }
-              },
-              "queryRef": "Opportunities.Blank"
-            }
-          ]
         }
-      },
-      "sortDefinition": {
-        "isDefaultSort": true
       }
     },
     "objects": {

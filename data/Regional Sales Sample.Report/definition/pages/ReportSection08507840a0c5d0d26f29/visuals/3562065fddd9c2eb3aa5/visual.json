@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "3562065fddd9c2eb3aa5",
   "position": {
-    "x": 963.24909755563885,
-    "y": 100.4892306346148,
-    "z": 5000,
-    "height": 60.546034012093159,
-    "width": 295.17921153112536,
-    "tabOrder": 4000
+    "x": 963.25,
+    "y": 100.49,
+    "z": 5000.0,
+    "width": 295.18,
+    "height": 60.55
   },
   "visual": {
     "visualType": "kpi",
@@ -47,24 +46,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Forecast %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -405,18 +386,6 @@
   "filterConfig": {
     "filters": [
       {
-        "name": "f2b3dd3ac96ed1c38654",
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunity Calendar"
-              }
-            },
-            "Property": "RELATIVE MONTH"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -450,6 +419,19 @@
               }
             }
           ]
+        },
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunity Calendar"
+              }
+            },
+            "Property": "RELATIVE MONTH"
+          }
         }
       }
     ]

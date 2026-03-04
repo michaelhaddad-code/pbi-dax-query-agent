@@ -1,35 +1,17 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "5354ed80d85d6ad0ca02",
   "position": {
-    "x": 16.759062711212934,
-    "y": 94.875531360896488,
-    "z": 11000,
-    "height": 67.759245830311812,
-    "width": 301.66787527193617,
-    "tabOrder": 7000
+    "x": 16.76,
+    "y": 94.88,
+    "z": 11000.0,
+    "width": 301.67,
+    "height": 67.76
   },
   "visual": {
     "visualType": "kpi",
     "query": {
       "queryState": {
-        "Indicator": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Opportunity Count"
-                }
-              },
-              "queryRef": "Opportunities.Opportunity Count"
-            }
-          ]
-        },
         "TrendLine": {
           "projections": [
             {
@@ -46,10 +28,24 @@
               "queryRef": "Opportunities.Blank"
             }
           ]
+        },
+        "Indicator": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Opportunity Count"
+                }
+              },
+              "queryRef": "Opportunities.Opportunity Count"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "isDefaultSort": true
       }
     },
     "objects": {

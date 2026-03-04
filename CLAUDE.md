@@ -496,3 +496,90 @@ The pipeline has been manually cross-checked against four reports:
 - All file I/O uses UTF-8 with BOM handling (`encoding="utf-8-sig"`)
 - Each skill must work both standalone (`if __name__ == "__main__"`) and as an importable module
 - Log warnings for unresolved items (don't silently drop data)
+
+## Pipeline Data Structures Reference
+
+Quick reference for return types, dict keys, and function signatures across all modules.
+
+### tmdl_parser.py
+
+**Dataclasses:**
+
+- `TmdlColumn`: `table`, `name`, `data_type` (e.g. "string", "int64"), `is_hidden`
+- `TmdlRelationship`: `from_table`, `from_column`, `to_table`, `to_column`, `is_active`, `cardinality`, `cross_filtering`
+- `SemanticModel`: `measures` dict `(table, name) → formula`, `columns` dict `(table, name) → TmdlColumn`, `_measure_index`, `_column_index`, `source`, `relationships`
+  - `model.types_reliable` → bool (False when source is "pbixray" or "")
+
+**Key Functions:**
+- `parse_semantic_model(model_root) → SemanticModel`
+- `match_field_to_model(field_name, model) → {"table", "field_name", "formula", "match_type"} | None`
+
+### dax_query_builder.py
+
+**`read_extractor_output(filepath) → (visuals, page_filters, bookmarks, filter_expr_data)`**
+
+**visuals: OrderedDict**
+- Key: `(page_name: str, visual_id_or_name: str)` — a **tuple**, not a string
+- Value: dict with keys: `"visual_type"`, `"visual_name"`, `"visual_id"`, `"z_index"`, `"sort_order"`, `"fields"` (list of field_dicts)
+
+**field_dict** (each entry in `"fields"` list):
+```
+{
+    "ui_name": str,              # display name in the visual
+    "usage": str,                # e.g. "Visual Column", "Visual Value", "Slicer"
+    "well": str,                 # e.g. "X-axis", "Y-axis", "Legend", "Values"
+    "table_sm": str,             # table name in semantic model
+    "col_sm": str,               # column/measure name in semantic model
+    "measure_formula": str,      # DAX formula (may be "")
+    "agg_func": str,             # implicit agg e.g. "Sum", "Avg" (may be "")
+    "data_type": str,            # e.g. "string", "int64" (may be "")
+    "model_source": str,         # "pbixray" or "pbip" (may be "")
+}
+```
+
+> **IMPORTANT**: field dicts do NOT have a `"role"` key. Use `"usage"` for the usage label and `"well"` for the well assignment. To classify a field, call `classify_field(f["usage"], f.get("well", ""))`.
+
+**page_filters: dict** — Key: `page_name: str`, Value: `list[field_dict]`
+
+**bookmarks: list[dict]** — Each: `{"bookmark_name", "page_name", "container_id", "visual_name", "visible" ("Y"/"N"), "filter_dax"}`
+
+**filter_expr_data: list[dict]** — Each: `{"page_name", "visual_name", "visual_id", "filter_level" ("Report"/"Page"/"Visual"/"Slicer"), "filter_field", "filter_dax_expr"}`
+
+**Iterating Over Visuals:**
+```python
+# CORRECT — unpack the tuple key
+for (page, vid), data in visuals.items():
+    visual_name = data["visual_name"]
+    fields = data["fields"]
+
+# WRONG — these will all fail:
+# visuals[0]               → KeyError (keys are tuples, not ints)
+# v.page_name              → AttributeError (values are dicts, not objects)
+# v["page_name"]           → KeyError (no such key in value dict)
+```
+
+**Key Functions:**
+- `classify_field(usage, well="") → str` — Returns: "grouping", "measure", "filter", "slicer", "page_filter", "matrix_column", "other"
+- `classify_visual_fields(fields) → (grouping, measures, filters, slicer_fields, matrix_columns)` — 5 lists of field_dicts
+- `build_dax_query(...) → (pattern_name: str, dax_query: str)` — Returns a **2-tuple**, not a dict
+- `get_single_visual_query(visuals, page_filters, visual_search, ...) → dict | None` — Does NOT accept a `page_name` keyword arg; use `"Page / Visual"` format in `visual_search` string to disambiguate
+- `collect_filters_for_visual(page_name, visual_name, visual_id, filter_expr_data) → list[str]`
+- `wrap_dax_with_filters(base_dax, filter_exprs, pattern) → str`
+
+### chart_generator.py
+
+**VisualSpec (dataclass):** `page_name`, `visual_name`, `visual_type`, `grouping_columns` (list), `measure_columns` (list), `y2_columns` (list), `series_columns` (list), `facet_column` (str), `dax_pattern` (str)
+
+**`parse_visual_from_metadata(metadata_excel, visual_name) → VisualSpec | None`** — Supports `"Page / Visual"` format for disambiguation
+
+**Constants:** `NATIVE_CHART_MAP`, `PNG_FALLBACK_TYPES` (waterfallChart, funnelChart, treemap, gauge), `PBI_COLORS`, `_SKIP_TYPES`
+
+### Common Gotchas
+
+1. **visuals is an OrderedDict with tuple keys** — `(page_name, visual_id)`, not integer indices
+2. **field dicts use `"usage"` not `"role"`** — there is no `"role"` key
+3. **field dicts use `"well"` for well assignment** — e.g. "X-axis", "Y-axis", "Legend"
+4. **`get_single_visual_query()` does NOT accept a `page_name` keyword arg** — use `"Page / Visual"` format in the search string
+5. **`build_dax_query()` returns a 2-tuple** `(pattern, dax)`, not a dict
+6. **`classify_field()` takes `(usage, well)` not a field dict** — call as `classify_field(f["usage"], f.get("well", ""))`
+7. **CSV output uses UTF-8-sig encoding** with no index column

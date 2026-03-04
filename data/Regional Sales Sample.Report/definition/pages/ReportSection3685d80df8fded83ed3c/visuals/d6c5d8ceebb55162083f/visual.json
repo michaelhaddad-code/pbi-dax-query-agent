@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "d6c5d8ceebb55162083f",
   "position": {
-    "x": 17.502972651605234,
-    "y": 175.02972651605234,
-    "z": 19000,
-    "height": 252.65160523186685,
-    "width": 300.59453032104642,
-    "tabOrder": 8000
+    "x": 17.5,
+    "y": 175.03,
+    "z": 19000.0,
+    "width": 300.59,
+    "height": 252.65
   },
   "visual": {
     "visualType": "barChart",
@@ -40,25 +39,7 @@
                   "Property": "Product"
                 }
               },
-              "queryRef": "Products.Product",
-              "active": false
-            }
-          ]
-        },
-        "Tooltips": {
-          "projections": [
-            {
-              "field": {
-                "Measure": {
-                  "Expression": {
-                    "SourceRef": {
-                      "Entity": "Opportunities"
-                    }
-                  },
-                  "Property": "Revenue In Pipeline"
-                }
-              },
-              "queryRef": "Opportunities.Revenue In Pipeline"
+              "queryRef": "Products.Product"
             }
           ]
         },
@@ -78,25 +59,24 @@
               "queryRef": "Opportunities.Close %"
             }
           ]
+        },
+        "Tooltips": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Opportunities"
+                    }
+                  },
+                  "Property": "Revenue In Pipeline"
+                }
+              },
+              "queryRef": "Opportunities.Revenue In Pipeline"
+            }
+          ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Close %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {
@@ -645,17 +625,6 @@
     "filters": [
       {
         "name": "Filter",
-        "field": {
-          "Measure": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Rev Goal"
-          }
-        },
-        "type": "Advanced",
         "filter": {
           "Version": 2,
           "From": [
@@ -690,7 +659,18 @@
             }
           ]
         },
-        "howCreated": "User"
+        "type": "Advanced",
+        "howCreated": 1,
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Owners"
+              }
+            },
+            "Property": "Rev Goal"
+          }
+        }
       }
     ]
   }

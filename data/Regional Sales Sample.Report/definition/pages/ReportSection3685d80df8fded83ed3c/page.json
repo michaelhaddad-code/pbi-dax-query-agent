@@ -1,182 +1,10 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.0.0/schema.json",
   "name": "ReportSection3685d80df8fded83ed3c",
   "displayName": "Win/Loss Ratio Overview",
-  "displayOption": "FitToPage",
-  "height": 720,
-  "width": 1280,
-  "filterConfig": {
-    "filters": [
-      {
-        "name": "Filter4",
-        "ordinal": 0,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunity Calendar"
-              }
-            },
-            "Property": "RELATIVE MONTH"
-          }
-        },
-        "type": "Advanced",
-        "filter": {
-          "Version": 2,
-          "From": [
-            {
-              "Name": "o",
-              "Entity": "Opportunity Calendar",
-              "Type": 0
-            }
-          ],
-          "Where": [
-            {
-              "Condition": {
-                "And": {
-                  "Left": {
-                    "Comparison": {
-                      "ComparisonKind": 2,
-                      "Left": {
-                        "Column": {
-                          "Expression": {
-                            "SourceRef": {
-                              "Source": "o"
-                            }
-                          },
-                          "Property": "RELATIVE MONTH"
-                        }
-                      },
-                      "Right": {
-                        "Literal": {
-                          "Value": "-21L"
-                        }
-                      }
-                    }
-                  },
-                  "Right": {
-                    "Not": {
-                      "Expression": {
-                        "Comparison": {
-                          "ComparisonKind": 0,
-                          "Left": {
-                            "Column": {
-                              "Expression": {
-                                "SourceRef": {
-                                  "Source": "o"
-                                }
-                              },
-                              "Property": "RELATIVE MONTH"
-                            }
-                          },
-                          "Right": {
-                            "Literal": {
-                              "Value": "null"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          ]
-        },
-        "howCreated": "User",
-        "isHiddenInViewMode": true
-      },
-      {
-        "name": "Filter1",
-        "ordinal": 1,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Opportunities"
-              }
-            },
-            "Property": "Sales Stage"
-          }
-        },
-        "type": "Categorical",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
-      },
-      {
-        "name": "Filter3",
-        "ordinal": 2,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Products"
-              }
-            },
-            "Property": "Product Category"
-          }
-        },
-        "type": "Categorical",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
-      },
-      {
-        "name": "Filter2",
-        "ordinal": 3,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Owners"
-              }
-            },
-            "Property": "Owner"
-          }
-        },
-        "type": "Categorical",
-        "howCreated": "User",
-        "isHiddenInViewMode": true
-      },
-      {
-        "name": "Filter58495c8a81970d2c2350",
-        "ordinal": 4,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Products"
-              }
-            },
-            "Property": "Product"
-          }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
-      },
-      {
-        "name": "Filterf6f8d6a01705e4bca438",
-        "ordinal": 5,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Products"
-              }
-            },
-            "Property": "Product Category"
-          }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
-      }
-    ],
-    "filterSortOrder": "Custom"
-  },
-  "pageBinding": {
-    "name": "Pod5",
-    "type": "Default",
-    "parameters": []
-  },
+  "width": 1280.0,
+  "height": 720.0,
+  "displayOption": 1,
   "objects": {
     "background": [
       {
@@ -248,5 +76,170 @@
       }
     ]
   },
-  "visibility": "HiddenInViewMode"
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "Filter4",
+        "filter": {
+          "Version": 2,
+          "From": [
+            {
+              "Name": "o",
+              "Entity": "Opportunity Calendar",
+              "Type": 0
+            }
+          ],
+          "Where": [
+            {
+              "Condition": {
+                "And": {
+                  "Left": {
+                    "Comparison": {
+                      "ComparisonKind": 2,
+                      "Left": {
+                        "Column": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Source": "o"
+                            }
+                          },
+                          "Property": "RELATIVE MONTH"
+                        }
+                      },
+                      "Right": {
+                        "Literal": {
+                          "Value": "-21L"
+                        }
+                      }
+                    }
+                  },
+                  "Right": {
+                    "Not": {
+                      "Expression": {
+                        "Comparison": {
+                          "ComparisonKind": 0,
+                          "Left": {
+                            "Column": {
+                              "Expression": {
+                                "SourceRef": {
+                                  "Source": "o"
+                                }
+                              },
+                              "Property": "RELATIVE MONTH"
+                            }
+                          },
+                          "Right": {
+                            "Literal": {
+                              "Value": "null"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "type": "Advanced",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
+        "ordinal": 0,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunity Calendar"
+              }
+            },
+            "Property": "RELATIVE MONTH"
+          }
+        }
+      },
+      {
+        "name": "Filter1",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
+        "ordinal": 1,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Opportunities"
+              }
+            },
+            "Property": "Sales Stage"
+          }
+        }
+      },
+      {
+        "name": "Filter3",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
+        "ordinal": 2,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Products"
+              }
+            },
+            "Property": "Product Category"
+          }
+        }
+      },
+      {
+        "name": "Filter2",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": true,
+        "ordinal": 3,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Owners"
+              }
+            },
+            "Property": "Owner"
+          }
+        }
+      },
+      {
+        "name": "Filter58495c8a81970d2c2350",
+        "type": "Categorical",
+        "howCreated": 1,
+        "ordinal": 4,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Products"
+              }
+            },
+            "Property": "Product"
+          }
+        }
+      },
+      {
+        "name": "Filterf6f8d6a01705e4bca438",
+        "type": "Categorical",
+        "howCreated": 1,
+        "ordinal": 5,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Products"
+              }
+            },
+            "Property": "Product Category"
+          }
+        }
+      }
+    ]
+  }
 }

@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "3388fa4da1c0278c0009",
   "position": {
-    "x": 18.126361655773422,
-    "y": 416.90631808278869,
-    "z": 2000,
-    "height": 283.05010893246191,
-    "width": 330.4575163398693,
-    "tabOrder": 4000
+    "x": 18.13,
+    "y": 416.91,
+    "z": 2000.0,
+    "width": 330.46,
+    "height": 283.05
   },
   "visual": {
     "visualType": "barChart",
@@ -40,8 +39,7 @@
                   "Property": "Owner"
                 }
               },
-              "queryRef": "Owners.Owner",
-              "active": false
+              "queryRef": "Owners.Owner"
             }
           ]
         },
@@ -67,29 +65,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Aggregation": {
-                "Expression": {
-                  "Column": {
-                    "Expression": {
-                      "SourceRef": {
-                        "Entity": "Opportunities"
-                      }
-                    },
-                    "Property": "Discount"
-                  }
-                },
-                "Function": 1
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

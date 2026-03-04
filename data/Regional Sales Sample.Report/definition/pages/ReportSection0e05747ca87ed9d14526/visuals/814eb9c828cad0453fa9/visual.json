@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "814eb9c828cad0453fa9",
   "position": {
-    "x": 647.57183098591554,
-    "y": 87.977464788732391,
-    "z": 13000,
-    "height": 190.3774647887324,
+    "x": 647.57,
+    "y": 87.98,
+    "z": 13000.0,
     "width": 614.4,
-    "tabOrder": 2000
+    "height": 190.38
   },
   "visual": {
     "visualType": "pivotTable",
@@ -88,23 +87,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Revenue In Pipeline"
-              }
-            },
-            "direction": "Descending"
-          }
-        ]
       }
     },
     "objects": {
@@ -12612,6 +12594,9 @@
     "filters": [
       {
         "name": "Filterde1d162a090e2c24235a",
+        "type": "Categorical",
+        "howCreated": 1,
+        "isHiddenInViewMode": false,
         "ordinal": 0,
         "field": {
           "Column": {
@@ -12622,12 +12607,13 @@
             },
             "Property": "Account Name"
           }
-        },
-        "type": "Categorical",
-        "howCreated": "User"
+        }
       },
       {
         "name": "Filtere51599c688bb1fb5ee41",
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
         "ordinal": 1,
         "field": {
           "Measure": {
@@ -12638,23 +12624,10 @@
             },
             "Property": "Close %"
           }
-        },
-        "type": "Advanced"
+        }
       },
       {
         "name": "Filtera1d136847cd4c34f2765",
-        "ordinal": 2,
-        "field": {
-          "Column": {
-            "Expression": {
-              "SourceRef": {
-                "Entity": "Industries"
-              }
-            },
-            "Property": "Industry"
-          }
-        },
-        "type": "TopN",
         "filter": {
           "Version": 2,
           "From": [
@@ -12741,11 +12714,11 @@
               }
             }
           ]
-        }
-      },
-      {
-        "name": "Filter3b10123c85a51229eec8",
-        "ordinal": 3,
+        },
+        "type": "TopN",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
+        "ordinal": 2,
         "field": {
           "Column": {
             "Expression": {
@@ -12755,9 +12728,12 @@
             },
             "Property": "Industry"
           }
-        },
+        }
+      },
+      {
+        "name": "Filter3b10123c85a51229eec8",
         "type": "Categorical",
-        "howCreated": "User",
+        "howCreated": 1,
         "objects": {
           "general": [
             {
@@ -12772,10 +12748,24 @@
               }
             }
           ]
+        },
+        "ordinal": 3,
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "Industries"
+              }
+            },
+            "Property": "Industry"
+          }
         }
       },
       {
         "name": "Filtere373a227552edbe359d0",
+        "type": "Advanced",
+        "howCreated": 0,
+        "isHiddenInViewMode": false,
         "ordinal": 4,
         "field": {
           "Measure": {
@@ -12786,10 +12776,8 @@
             },
             "Property": "Revenue Won"
           }
-        },
-        "type": "Advanced"
+        }
       }
-    ],
-    "filterSortOrder": "Custom"
+    ]
   }
 }

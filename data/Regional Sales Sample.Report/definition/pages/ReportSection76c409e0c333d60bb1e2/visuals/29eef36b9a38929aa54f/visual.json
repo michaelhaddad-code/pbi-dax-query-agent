@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "29eef36b9a38929aa54f",
   "position": {
-    "x": 14.077393075356415,
-    "y": 84.9857433808554,
-    "z": 17000,
-    "height": 167.36456211812629,
-    "width": 303.44602851323828,
-    "tabOrder": 6000
+    "x": 14.08,
+    "y": 84.99,
+    "z": 17000.0,
+    "width": 303.45,
+    "height": 167.36
   },
   "visual": {
     "visualType": "barChart",
@@ -48,24 +47,6 @@
             }
           ]
         }
-      },
-      "sortDefinition": {
-        "sort": [
-          {
-            "field": {
-              "Measure": {
-                "Expression": {
-                  "SourceRef": {
-                    "Entity": "Opportunities"
-                  }
-                },
-                "Property": "Close %"
-              }
-            },
-            "direction": "Descending"
-          }
-        ],
-        "isDefaultSort": true
       }
     },
     "objects": {

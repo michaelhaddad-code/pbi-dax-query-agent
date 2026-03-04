@@ -1,13 +1,12 @@
-{
+﻿{
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.5.0/schema.json",
   "name": "517971f6c10aacc974b8",
   "position": {
-    "x": 331.1247443762781,
-    "y": 442.37218813905929,
-    "z": 27001,
-    "height": 253.90593047034767,
-    "width": 302.98568507157466,
-    "tabOrder": 5000
+    "x": 331.12,
+    "y": 442.37,
+    "z": 27001.0,
+    "width": 302.99,
+    "height": 253.91
   },
   "visual": {
     "visualType": "textbox",
@@ -22960,6 +22959,824 @@
         }
       ]
     },
-    "drillFilterOtherVisuals": true
+    "drillFilterOtherVisuals": true,
+    "query": {
+      "queryState": {
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "V1"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V1)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "V2"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V2)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "V5"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V5)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "V4"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V4)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "V3"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V3)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q"
+                        }
+                      },
+                      "Property": "TemplateIdColumnRole"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.TemplateIdColumnRole)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q1"
+                        }
+                      },
+                      "Property": "V4"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V4)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q2"
+                        }
+                      },
+                      "Property": "V5"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V5)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q3"
+                        }
+                      },
+                      "Property": "V6"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V6)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q4"
+                        }
+                      },
+                      "Property": "V7"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V7)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q5"
+                        }
+                      },
+                      "Property": "V8"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V8)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q6"
+                        }
+                      },
+                      "Property": "V9"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V9)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q7"
+                        }
+                      },
+                      "Property": "V11"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V11)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q8"
+                        }
+                      },
+                      "Property": "V15"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V15)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q9"
+                        }
+                      },
+                      "Property": "V16"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V16)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q10"
+                        }
+                      },
+                      "Property": "V17"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V17)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q11"
+                        }
+                      },
+                      "Property": "TemplateIdColumnRole"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.TemplateIdColumnRole)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q12"
+                        }
+                      },
+                      "Property": "V1"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V1)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q13"
+                        }
+                      },
+                      "Property": "V3"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V3)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q14"
+                        }
+                      },
+                      "Property": "V8"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V8)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q15"
+                        }
+                      },
+                      "Property": "V9"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V9)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q16"
+                        }
+                      },
+                      "Property": "V12"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V12)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q17"
+                        }
+                      },
+                      "Property": "V13"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V13)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q18"
+                        }
+                      },
+                      "Property": "V16"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V16)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q19"
+                        }
+                      },
+                      "Property": "V17"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V17)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q20"
+                        }
+                      },
+                      "Property": "V18"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V18)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q21"
+                        }
+                      },
+                      "Property": "V5"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V5)2"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q22"
+                        }
+                      },
+                      "Property": "V10"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V10)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q23"
+                        }
+                      },
+                      "Property": "V14"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V14)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q24"
+                        }
+                      },
+                      "Property": "V19"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V19)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q25"
+                        }
+                      },
+                      "Property": "V20"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V20)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q26"
+                        }
+                      },
+                      "Property": "V7"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V7)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q27"
+                        }
+                      },
+                      "Property": "V11"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V11)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q28"
+                        }
+                      },
+                      "Property": "V15"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V15)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q29"
+                        }
+                      },
+                      "Property": "V21"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V21)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q30"
+                        }
+                      },
+                      "Property": "V22"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.V22)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q31"
+                        }
+                      },
+                      "Property": "TemplateIdColumnRole"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.TemplateIdColumnRole)2"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q32"
+                        }
+                      },
+                      "Property": "Owners.Manager"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Owners.Manager)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q33"
+                        }
+                      },
+                      "Property": "Opportunities.Close %"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Opportunities.Close %)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q34"
+                        }
+                      },
+                      "Property": "Products.Product Category"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Products.Product Category)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q35"
+                        }
+                      },
+                      "Property": "Owners.Owner"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Owners.Owner)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q36"
+                        }
+                      },
+                      "Property": "Opportunities.Close %"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Opportunities.Close %)1"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q37"
+                        }
+                      },
+                      "Property": "Opportunities.Close %"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Opportunities.Close %)2"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q38"
+                        }
+                      },
+                      "Property": "Opportunities.Close %"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Opportunities.Close %)3"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "q39"
+                        }
+                      },
+                      "Property": "Products.Product"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "Min(expr.Products.Product)"
+            }
+          ]
+        }
+      }
+    }
   }
 }
