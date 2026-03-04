@@ -91,7 +91,7 @@ ROLE_USAGE_MAP = {
     ("tableEx", "Rows"): "Visual Column",
     ("pivotTable", "Values"): "Visual Value",
     ("pivotTable", "Rows"): "Visual Row",
-    ("pivotTable", "Columns"): "Visual Column",
+    ("pivotTable", "Columns"): "Visual Matrix Column",
     # Cards
     ("card", "Values"): "Visual Value",
     ("cardVisual", "Values"): "Visual Value",
@@ -128,6 +128,43 @@ DEFAULT_ROLE_MAP = {
     "Goal": "Visual Goal",
     "Trend": "Visual Trend",
 }
+
+# ============================================================
+# Projection well → human-readable well name
+# ============================================================
+
+WELL_NAME_MAP = {
+    "Category":      "X-axis",
+    "X":             "X-axis",
+    "Y":             "Y-axis",
+    "Y2":            "Y2-axis",
+    "Series":        "Legend",
+    "SmallMultiple": "Small Multiples",
+    "Rows":          "Matrix Rows",
+    "Columns":       "Matrix Columns",
+    "Values":        "Values",
+    "Details":       "Details",
+    "Size":          "Size",
+    "Tooltips":      "Tooltip",
+    "Value":         "Values",
+    "Goal":          "Values",
+    "Trend":         "Values",
+    "Indicator":     "Indicator",
+    "TrendLine":     "Trend",
+    "Group":         "Legend",
+    "Analyze":       "Analyze",
+    "ExplainBy":     "Explain By",
+    "Target":        "Target",
+    "TargetValue":   "Target Value",
+    "Play":          "Play Axis",
+    "Color":         "Legend",
+    "Fields":        "Values",
+}
+
+
+def get_well_name(role: str) -> str:
+    """Map a projection well key to a human-readable well name."""
+    return WELL_NAME_MAP.get(role, role)
 
 
 def get_usage_label(vis_type: str, role: str, is_measure: bool) -> str:
@@ -342,7 +379,7 @@ def _lookup_data_type(model, table: str, column: str, field_type: str) -> str:
 
 def _process_measure_field(page_name, vis_label, vis_type, display_name, usage, formula,
                            entity, prop, measures_lookup, visual_id="",
-                           data_type="", model_source=""):
+                           data_type="", model_source="", z_index=0, well=""):
     """Helper: resolve a measure field into output rows (handles nested dependencies)."""
     rows = []
     if formula:
@@ -355,12 +392,14 @@ def _process_measure_field(page_name, vis_label, vis_type, display_name, usage, 
                 "Visual Type": vis_type,
                 "UI Field Name": display_name,
                 "Usage (Visual/Filter/Slicer)": usage,
+                "Well": well,
                 "Measure Formula": formula,
                 "Table in the Semantic Model": st["table"],
                 "Column in the Semantic Model": st["column"],
                 "Aggregation Function": "",
                 "Data Type": data_type,
                 "Semantic Model Source": model_source,
+                "Z Index": z_index,
             })
     return rows
 
@@ -372,6 +411,9 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
     rows = []
     vis = visual_json.get("visual", {})
     vis_type = vis.get("visualType", "unknown")
+
+    # Extract z-index from visual position (higher z = rendered on top = default view)
+    z_index = visual_json.get("position", {}).get("z", 0) or 0
 
     if vis_type in SKIP_VISUAL_TYPES:
         return rows
@@ -389,8 +431,15 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
     # --- Query state fields (visual data roles) ---
     query_state = vis.get("query", {}).get("queryState", {})
     for role, role_data in query_state.items():
+        well_name = get_well_name(role)  # Human-readable well assignment (e.g. "X-axis", "Legend")
         projections = role_data.get("projections", [])
         for proj in projections:
+            # Skip drill-down levels: active=False means the field is a deeper
+            # hierarchy level not shown at the default (top-level) view.
+            # active=True (top level) and active=None (non-drill fields like measures)
+            # are both included.
+            if proj.get("active") is False:
+                continue
             field = proj.get("field", {})
             display_name = proj.get("displayName", "")
             field_infos = extract_field_info(field)
@@ -421,6 +470,8 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         fi["entity"], fi["property"], measures_lookup,
                         visual_id=visual_id,
                         data_type=dt, model_source=model_source,
+                        z_index=z_index,
+                        well=well_name,
                     ))
                 else:
                     rows.append({
@@ -430,12 +481,14 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         "Visual Type": vis_type,
                         "UI Field Name": display_name,
                         "Usage (Visual/Filter/Slicer)": usage,
+                        "Well": well_name,
                         "Measure Formula": formula,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
                         "Aggregation Function": agg_func,
                         "Data Type": dt,
                         "Semantic Model Source": model_source,
+                        "Z Index": z_index,
                     })
 
     # --- Collect fields already captured (to skip duplicate auto-generated filters) ---
@@ -465,6 +518,7 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                         fi["entity"], fi["property"], measures_lookup,
                         visual_id=visual_id,
                         data_type=dt, model_source=model_source,
+                        z_index=z_index,
                     ))
                     continue
             else:
@@ -477,12 +531,14 @@ def parse_visual(visual_json: dict, page_name: str, measures_lookup: dict,
                 "Visual Type": vis_type,
                 "UI Field Name": fi["property"],
                 "Usage (Visual/Filter/Slicer)": usage_str,
+                "Well": "",
                 "Measure Formula": formula,
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
                 "Aggregation Function": "",
                 "Data Type": dt,
                 "Semantic Model Source": model_source,
+                "Z Index": z_index,
             })
 
     return rows
@@ -525,12 +581,14 @@ def parse_page_filters(page_json: dict, page_name: str, measures_lookup: dict,
                 "Visual Type": "pageFilter",
                 "UI Field Name": fi["property"],
                 "Usage (Visual/Filter/Slicer)": usage_str,
+                "Well": "",
                 "Measure Formula": formula,
                 "Table in the Semantic Model": fi["entity"],
                 "Column in the Semantic Model": fi["property"],
                 "Aggregation Function": "",
                 "Data Type": dt,
                 "Semantic Model Source": model_source,
+                "Z Index": 0,
             })
     return rows
 
@@ -729,12 +787,14 @@ def extract_metadata(report_root: str, model_root: str,
                         "Visual Type": "reportFilter",
                         "UI Field Name": fi["property"],
                         "Usage (Visual/Filter/Slicer)": usage_str,
+                        "Well": "",
                         "Measure Formula": formula,
                         "Table in the Semantic Model": fi["entity"],
                         "Column in the Semantic Model": fi["property"],
                         "Aggregation Function": "",
                         "Data Type": dt,
                         "Semantic Model Source": model_source,
+                        "Z Index": 0,
                     })
             print(f"    Found {len(all_rows)} report-level filters")
         else:
@@ -844,12 +904,14 @@ def extract_metadata(report_root: str, model_root: str,
         "Visual Type",
         "UI Field Name",
         "Usage (Visual/Filter/Slicer)",
+        "Well",
         "Measure Formula",
         "Table in the Semantic Model",
         "Column in the Semantic Model",
         "Aggregation Function",
         "Data Type",
         "Semantic Model Source",
+        "Z Index",
     ])
 
     pseudo_visuals = {'Page Filters', 'Report Filters'}

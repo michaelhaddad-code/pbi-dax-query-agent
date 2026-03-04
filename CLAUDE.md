@@ -425,7 +425,8 @@ Generates PBI-style chart visuals from DAX query tabular data. Supports two outp
   - **PPTX mode (default):** Single-slide `.pptx` file per visual with native editable chart or embedded plotly PNG.
   - **PNG mode (legacy):** plotly-rendered static PNG image.
 - **Native chart types (editable in PowerPoint):** barChart, clusteredBarChart, stackedBarChart, hundredPercentStackedBarChart, columnChart, clusteredColumnChart, stackedColumnChart, hundredPercentStackedColumnChart, lineChart, areaChart, stackedAreaChart, pieChart, donutChart, scatterChart
-- **PNG fallback types:** lineClusteredColumnComboChart, lineStackedColumnComboChart, waterfallChart, funnelChart, treemap, gauge, card, multiRowCard, kpi, tableEx, pivotTable, ribbonChart
+- **Native extended types (editable in PowerPoint):** tableEx, pivotTable (native tables), card, cardVisual, multiRowCard (styled text boxes), kpi (value + delta text), ribbonChart (as AREA_STACKED), lineClusteredColumnComboChart, lineStackedColumnComboChart (column + line with secondary axis via XML)
+- **PNG fallback types:** waterfallChart, funnelChart, treemap, gauge
 - **Skipped:** slicers, maps, AI visuals (not meaningful as static charts)
 - **Dependencies:** plotly, kaleido, pandas, openpyxl, python-pptx
 
@@ -462,6 +463,7 @@ python skills/chart_generator.py \
 10. **Keep DAX code blocks clean** — NEVER embed disclaimers, comments like "adjust as needed", or explanatory notes inside DAX code blocks. Present clean, executable DAX. If a disclaimer is needed (e.g., relative date filters), add it as a brief note below the code block.
 11. **Relative date filters: keep explanations simple** — When a filter uses relative date offsets that can't be resolved statically, give a one-line disclaimer (e.g., "This report uses a relative date filter, so the year values `{2025, 2024}` may differ at runtime."). Do NOT explain PBI internals, offset encoding, or how relative dates work unless the user specifically asks.
 12. **ALWAYS check the Filter Expressions sheet for preset filter values** — The Report Metadata sheet only lists filter *field names*. Preset values (e.g., `'Date'[Year] = 2014`) are in the Filter Expressions sheet. Before presenting a filtered DAX query, ALWAYS cross-reference Filter Expressions for report-level, page-level, and visual-level preset values. Use `collect_filters_for_visual()` or pass `filter_expr_data` to `get_single_visual_query()`. Never tell the user "no preset values" without checking this sheet first.
+13. **ALWAYS generate DAX queries by calling `get_single_visual_query()` programmatically — never hand-write measure references.** The UI field name (e.g., "Total Sales") is the display label set by the report author and does NOT match the semantic model measure name. The actual measure name is `col_sm.split(',')[0]` (e.g., "Total Category Volume"). `get_single_visual_query()` resolves this automatically. Only fall back to hand-written DAX for edge cases the code cannot handle (e.g., custom pivot logic, Pattern 3M with user-supplied column values), and clearly note when doing so. Always call `read_extractor_output()` which returns 4 values: `visuals, page_filters, bookmarks, filter_expr_data` — pass `filter_expr_data` to `get_single_visual_query()`.
 
 ## Validation Status
 The pipeline has been manually cross-checked against four reports:

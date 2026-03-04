@@ -36,7 +36,9 @@ from pptx.presentation import Presentation as PptxPresentation  # actual class f
 from pptx.chart.data import CategoryChartData, XyChartData
 from pptx.util import Inches, Pt, Emu
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
+from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
+from lxml import etree
 
 
 # =============================================================================
@@ -101,10 +103,7 @@ NATIVE_CHART_MAP = {
 
 # Visual types that require plotly PNG fallback (no native python-pptx support)
 PNG_FALLBACK_TYPES = {
-    "lineClusteredColumnComboChart", "lineStackedColumnComboChart",
-    "waterfallChart", "funnelChart", "treemap",
-    "gauge", "card", "cardVisual", "multiRowCard", "kpi",
-    "tableEx", "pivotTable", "ribbonChart",
+    "waterfallChart", "funnelChart", "treemap", "gauge",
 }
 
 
@@ -118,9 +117,11 @@ class VisualSpec:
     page_name: str
     visual_name: str
     visual_type: str                          # PBI camelCase identifier (e.g., "barChart")
-    grouping_columns: list = field(default_factory=list)  # category/axis field names
-    measure_columns: list = field(default_factory=list)   # value/measure field names
-    y2_columns: list = field(default_factory=list)        # secondary-axis measures (Visual Y2)
+    grouping_columns: list = field(default_factory=list)  # X-axis / Matrix Rows field names
+    measure_columns: list = field(default_factory=list)   # Y-axis / Values field names
+    y2_columns: list = field(default_factory=list)        # secondary-axis measures (Y2-axis)
+    series_columns: list = field(default_factory=list)    # Legend / Series field names
+    facet_column: str = ""                    # Small Multiples field name (if present)
     dax_pattern: str = ""                     # informational (e.g., "Pattern 3")
 
 
@@ -161,26 +162,49 @@ def get_pbi_plotly_layout():
 # DATA HELPERS
 # =============================================================================
 
+def _bare_column_name(name):
+    """Extract the bare column name from a DAX-style reference.
+
+    Handles formats like:
+      - "Category[Channel]"  -> "Channel"
+      - "'Category'[Channel]" -> "Channel"
+      - "Channel"            -> "Channel"
+    """
+    import re
+    m = re.search(r'\[([^\]]+)\]', name)
+    return m.group(1) if m else name
+
+
 def classify_columns(df, spec):
     """Split DataFrame columns into categories (grouping) and values (measures).
 
     Uses the VisualSpec's field lists to match against actual DataFrame column
-    names (case-insensitive). Falls back to dtype inference if no match.
+    names (case-insensitive). Also tries matching the bare bracketed name from
+    DAX-style column references (e.g. "Category[Channel]" -> "Channel").
+    Falls back to dtype inference if no match.
 
     Returns:
         (categories: list[str], values: list[str]) — column names in df
     """
     df_cols_lower = {c.lower().strip(): c for c in df.columns}
+    # Also build an index keyed by the bare bracket-extracted name
+    df_cols_bare = {_bare_column_name(c).lower().strip(): c for c in df.columns}
+
+    def _find_col(name):
+        key = name.lower().strip()
+        return (df_cols_lower.get(key)
+                or df_cols_bare.get(key)
+                or df_cols_lower.get(_bare_column_name(name).lower().strip()))
 
     categories = []
     for gc in spec.grouping_columns:
-        actual = df_cols_lower.get(gc.lower().strip())
+        actual = _find_col(gc)
         if actual and actual not in categories:
             categories.append(actual)
 
     values = []
     for mc in spec.measure_columns:
-        actual = df_cols_lower.get(mc.lower().strip())
+        actual = _find_col(mc)
         if actual and actual not in values:
             values.append(actual)
 
@@ -195,32 +219,93 @@ def classify_columns(df, spec):
     return categories, values
 
 
-def _prepare_series_data(df, categories, values):
+def _resolve_series(df, spec):
+    """Resolve spec.series_columns to actual DataFrame column names.
+
+    Returns a list of matched column names (empty list if none found or spec has
+    no series_columns). Used to pass explicit Legend/Series info to pivot helpers.
+    """
+    series_cols = getattr(spec, "series_columns", [])
+    if not series_cols:
+        return []
+    df_cols_lower = {c.lower().strip(): c for c in df.columns}
+    df_cols_bare = {_bare_column_name(c).lower().strip(): c for c in df.columns}
+
+    def _find(name):
+        key = name.lower().strip()
+        return (df_cols_lower.get(key)
+                or df_cols_bare.get(key)
+                or df_cols_lower.get(_bare_column_name(name).lower().strip()))
+
+    resolved = []
+    for sc in series_cols:
+        actual = _find(sc)
+        if actual and actual not in resolved:
+            resolved.append(actual)
+    return resolved
+
+
+_MONTH_ORDER = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+_MONTH_RANK = {m: i for i, m in enumerate(_MONTH_ORDER)}
+
+
+def _sort_categories(labels):
+    """Sort category labels chronologically if they look like month abbreviations,
+    otherwise return as-is."""
+    if all(str(l).strip() in _MONTH_RANK for l in labels):
+        return sorted(labels, key=lambda m: _MONTH_RANK[str(m).strip()])
+    return labels
+
+
+def _prepare_series_data(df, categories, values, series=None):
     """Prepare category labels and series data for bar/column/stacked charts.
 
-    Handles the common pivot logic: when 2+ grouping columns exist, the second
-    column is pivoted into legend series (like PBI's "Legend" well). Otherwise,
-    each measure becomes its own series.
+    Pivot logic priority:
+    1. If `series` is provided (explicit Legend well field), pivot on that column.
+    2. If 2+ grouping columns and 1 measure, pivot on the second grouping (legacy).
+    3. Otherwise, each measure becomes its own series.
+
+    Args:
+        series: list of df column names to use as the legend/series pivot axis.
+                When provided (well-aware mode), overrides the legacy 2-grouping heuristic.
 
     Returns:
-        (cat_labels: list[str], series: OrderedDict[str, list[float]], needs_legend: bool)
+        (cat_labels: list[str], series_data: OrderedDict[str, list[float]], needs_legend: bool)
     """
     from collections import OrderedDict
 
+    # Well-aware: explicit Legend column provided
+    if series and len(series) == 1 and len(values) == 1 and categories:
+        pivot_df = df.pivot_table(
+            index=categories[0], columns=series[0],
+            values=values[0], aggfunc="sum"
+        ).fillna(0)
+        sorted_index = _sort_categories(list(pivot_df.index))
+        pivot_df = pivot_df.reindex(sorted_index)
+        cat_labels = [str(c) for c in pivot_df.index]
+        series_data = OrderedDict((str(col), pivot_df[col].tolist()) for col in pivot_df.columns)
+        return cat_labels, series_data, True
+
+    # Legacy: treat second grouping column as legend when no explicit series
     if len(categories) >= 2 and len(values) == 1:
-        # Pivot second grouping column into legend series
         pivot_df = df.pivot_table(
             index=categories[0], columns=categories[1],
             values=values[0], aggfunc="sum"
         ).fillna(0)
+        sorted_index = _sort_categories(list(pivot_df.index))
+        pivot_df = pivot_df.reindex(sorted_index)
         cat_labels = [str(c) for c in pivot_df.index]
-        series = OrderedDict((str(col), pivot_df[col].tolist()) for col in pivot_df.columns)
-        return cat_labels, series, True
-    else:
-        cat_labels = df[categories[0]].astype(str).tolist()
-        series = OrderedDict((v, df[v].tolist()) for v in values)
-        needs_legend = len(values) > 1
-        return cat_labels, series, needs_legend
+        series_data = OrderedDict((str(col), pivot_df[col].tolist()) for col in pivot_df.columns)
+        return cat_labels, series_data, True
+
+    sorted_vals = _sort_categories(df[categories[0]].astype(str).tolist())
+    if sorted_vals != df[categories[0]].astype(str).tolist():
+        df = df.set_index(categories[0]).reindex(sorted_vals).reset_index()
+    cat_labels = df[categories[0]].astype(str).tolist()
+    series_data = OrderedDict((v, df[v].tolist()) for v in values)
+    needs_legend = len(values) > 1
+    return cat_labels, series_data, needs_legend
 
 
 def parse_visual_from_metadata(metadata_excel, visual_name):
@@ -264,19 +349,55 @@ def parse_visual_from_metadata(metadata_excel, visual_name):
     data = visuals[matched_key]
     page_name = matched_key[0]
 
-    grouping_cols = []
-    measure_cols = []
-    y2_cols = []
+    # Check whether the Excel has well assignments (new metadata) or only usage labels (legacy)
+    has_well = any(f.get("well", "") for f in data["fields"])
+
+    grouping_cols = []    # X-axis / Matrix Rows
+    series_cols = []      # Legend / Series
+    facet_col = ""        # Small Multiples
+    measure_cols = []     # Y-axis / Values
+    y2_cols = []          # Y2-axis
+    seen_field = set()    # deduplicate by (table, col) key
+
     for f in data["fields"]:
-        role = classify_field(f["usage"])
-        if role == "grouping":
-            grouping_cols.append(f["ui_name"])
-        elif role == "measure":
-            if f["ui_name"] not in measure_cols:
-                measure_cols.append(f["ui_name"])
-                # Check if this measure is assigned to the secondary Y-axis
-                if "y2" in f["usage"].lower():
-                    y2_cols.append(f["ui_name"])
+        well = f.get("well", "")
+        ui_name = f["ui_name"]
+        field_key = (f["table_sm"], f["col_sm"])
+
+        if has_well and well:
+            w = well.lower()
+            if w == "small multiples":
+                if not facet_col:
+                    facet_col = ui_name
+            elif w == "legend":
+                if ui_name not in series_cols:
+                    series_cols.append(ui_name)
+            elif w in ("x-axis", "matrix rows"):
+                if field_key not in seen_field:
+                    seen_field.add(field_key)
+                    grouping_cols.append(ui_name)
+            elif w == "y2-axis":
+                if ui_name not in measure_cols:
+                    measure_cols.append(ui_name)
+                if ui_name not in y2_cols:
+                    y2_cols.append(ui_name)
+            elif w in ("y-axis", "values", "indicator", "trend", "target",
+                       "target value", "size", "tooltip", "analyze"):
+                if ui_name not in measure_cols:
+                    measure_cols.append(ui_name)
+            # Ignore wells like "Tooltip", "Details", "Play Axis" for chart layout
+        else:
+            # Legacy fallback: classify by usage label
+            role = classify_field(f["usage"])
+            if role == "grouping":
+                if field_key not in seen_field:
+                    seen_field.add(field_key)
+                    grouping_cols.append(ui_name)
+            elif role == "measure":
+                if ui_name not in measure_cols:
+                    measure_cols.append(ui_name)
+                if "y2" in f["usage"].lower() and ui_name not in y2_cols:
+                    y2_cols.append(ui_name)
 
     return VisualSpec(
         page_name=page_name,
@@ -285,6 +406,8 @@ def parse_visual_from_metadata(metadata_excel, visual_name):
         grouping_columns=grouping_cols,
         measure_columns=measure_cols,
         y2_columns=y2_cols,
+        series_columns=series_cols,
+        facet_column=facet_col,
     )
 
 
@@ -308,13 +431,17 @@ def _render_bar(df, spec):
     if len(values) == 1 and len(categories) == 1:
         df = df.sort_values(values[0], ascending=False)  # highest at top with reversed y-axis
 
-    cat_labels, series, needs_legend = _prepare_series_data(df, categories, values)
+    series_cols = _resolve_series(df, spec)
+    cat_labels, series, needs_legend = _prepare_series_data(df, categories, values, series_cols)
 
     fig = go.Figure()
     for i, (name, data) in enumerate(series.items()):
         fig.add_trace(go.Bar(
             y=cat_labels, x=data, name=name, orientation="h",
             marker_color=PBI_COLORS[i % len(PBI_COLORS)],
+            text=[f"{v:,.0f}" for v in data],
+            textposition="outside",
+            textfont={"size": 9, "family": PBI_FONT},
         ))
 
     fig.update_layout(
@@ -341,13 +468,17 @@ def _render_column(df, spec):
     if len(values) == 1 and len(categories) == 1:
         df = df.sort_values(values[0], ascending=False)
 
-    cat_labels, series, needs_legend = _prepare_series_data(df, categories, values)
+    series_cols = _resolve_series(df, spec)
+    cat_labels, series, needs_legend = _prepare_series_data(df, categories, values, series_cols)
 
     fig = go.Figure()
     for i, (name, data) in enumerate(series.items()):
         fig.add_trace(go.Bar(
             x=cat_labels, y=data, name=name,
             marker_color=PBI_COLORS[i % len(PBI_COLORS)],
+            text=[f"{v:,.0f}" for v in data],
+            textposition="outside",
+            textfont={"size": 9, "family": PBI_FONT},
         ))
 
     fig.update_layout(
@@ -369,13 +500,17 @@ def _render_stacked_bar(df, spec):
     if not categories or not values:
         return _render_table(df, spec)
 
-    cat_labels, series, _ = _prepare_series_data(df, categories, values)
+    series_cols = _resolve_series(df, spec)
+    cat_labels, series, _ = _prepare_series_data(df, categories, values, series_cols)
 
     fig = go.Figure()
     for i, (name, data) in enumerate(series.items()):
         fig.add_trace(go.Bar(
             y=cat_labels, x=data, name=name, orientation="h",
             marker_color=PBI_COLORS[i % len(PBI_COLORS)],
+            text=[f"{v:,.0f}" for v in data],
+            textposition="inside",
+            textfont={"size": 9, "family": PBI_FONT, "color": "white"},
         ))
 
     layout_kwargs = {
@@ -401,13 +536,17 @@ def _render_stacked_column(df, spec):
     if not categories or not values:
         return _render_table(df, spec)
 
-    cat_labels, series, _ = _prepare_series_data(df, categories, values)
+    series_cols = _resolve_series(df, spec)
+    cat_labels, series, _ = _prepare_series_data(df, categories, values, series_cols)
 
     fig = go.Figure()
     for i, (name, data) in enumerate(series.items()):
         fig.add_trace(go.Bar(
             x=cat_labels, y=data, name=name,
             marker_color=PBI_COLORS[i % len(PBI_COLORS)],
+            text=[f"{v:,.0f}" for v in data],
+            textposition="inside",
+            textfont={"size": 9, "family": PBI_FONT, "color": "white"},
         ))
 
     layout_kwargs = {
@@ -445,20 +584,28 @@ def _render_line(df, spec):
         ).fillna(0)
         fig = go.Figure()
         for i, col in enumerate(pivot_df.columns):
+            col_data = pivot_df[col].tolist()
             fig.add_trace(go.Scatter(
-                x=pivot_df.index.astype(str), y=pivot_df[col],
-                name=str(col), mode="lines+markers",
+                x=pivot_df.index.astype(str), y=col_data,
+                name=str(col), mode="lines+markers+text",
                 line={"color": PBI_COLORS[i % len(PBI_COLORS)]},
+                text=[f"{v:,.0f}" for v in col_data],
+                textposition="top center",
+                textfont={"size": 9, "family": PBI_FONT},
             ))
         needs_legend = True
     else:
         fig = go.Figure()
         cat_labels = df_sorted[categories[0]].astype(str).tolist()
         for i, v in enumerate(values):
+            v_data = df_sorted[v].tolist()
             fig.add_trace(go.Scatter(
-                x=cat_labels, y=df_sorted[v].tolist(),
-                name=v, mode="lines+markers",
+                x=cat_labels, y=v_data,
+                name=v, mode="lines+markers+text",
                 line={"color": PBI_COLORS[i % len(PBI_COLORS)]},
+                text=[f"{val:,.0f}" for val in v_data],
+                textposition="top center",
+                textfont={"size": 9, "family": PBI_FONT},
             ))
         needs_legend = len(values) > 1
 
@@ -555,7 +702,7 @@ def _render_pie(df, spec):
         labels=df[categories[0]].astype(str).tolist(),
         values=df[values[0]].tolist(),
         marker={"colors": PBI_COLORS[:len(df)]},
-        textinfo="percent+label",
+        textinfo="percent+label+value",
         textfont={"size": 11, "family": PBI_FONT},
         hole=0,
     ))
@@ -611,7 +758,7 @@ def _render_donut(df, spec):
         labels=df[categories[0]].astype(str).tolist(),
         values=df[values[0]].tolist(),
         marker={"colors": PBI_COLORS[:len(df)]},
-        textinfo="percent+label",
+        textinfo="percent+label+value",
         textfont={"size": 11, "family": PBI_FONT},
         hole=0.4,
     ))
@@ -654,8 +801,11 @@ def _render_scatter(df, spec):
                 "x": group[values[0]].tolist(),
                 "y": group[values[1]].tolist(),
                 "name": str(name),
-                "mode": "markers",
+                "mode": "markers+text",
                 "marker": {"color": PBI_COLORS[i % len(PBI_COLORS)], "size": 10},
+                "text": group[categories[0]].astype(str).tolist(),
+                "textposition": "top center",
+                "textfont": {"size": 9, "family": PBI_FONT},
             }
             if has_bubble:
                 trace_kwargs["marker"]["size"] = group[values[2]].tolist()
@@ -663,11 +813,15 @@ def _render_scatter(df, spec):
                 trace_kwargs["marker"]["sizeref"] = 2.0 * max_bubble / (40.0 ** 2)
             fig.add_trace(go.Scatter(**trace_kwargs))
     else:
+        y_data = df[values[1]].tolist()
         trace_kwargs = {
             "x": df[values[0]].tolist(),
-            "y": df[values[1]].tolist(),
-            "mode": "markers",
+            "y": y_data,
+            "mode": "markers+text",
             "marker": {"color": PBI_COLORS[0], "size": 10},
+            "text": [f"{v:,.0f}" for v in y_data],
+            "textposition": "top center",
+            "textfont": {"size": 9, "family": PBI_FONT},
         }
         if has_bubble:
             trace_kwargs["marker"]["size"] = df[values[2]].tolist()
@@ -712,7 +866,9 @@ def _render_waterfall(df, spec):
         increasing={"marker": {"color": PBI_COLORS[0]}},   # blue for positive
         decreasing={"marker": {"color": PBI_COLORS[7]}},    # red for negative
         totals={"marker": {"color": PBI_COLORS[1]}},        # dark blue for totals
+        text=[f"{v:,.0f}" for v in val_data],
         textposition="outside",
+        textfont={"size": 9, "family": PBI_FONT},
     ))
     fig.update_layout(
         **get_pbi_plotly_layout(),
@@ -727,17 +883,116 @@ def _render_waterfall(df, spec):
 # ---- Combo chart (dual axis: bars + line) ----
 
 def _render_combo(df, spec):
-    """Combo chart with bars on primary Y-axis and line on secondary Y-axis.
+    """Combo chart renderer.
 
-    Uses plotly's make_subplots with secondary_y for dual-axis support.
-    If spec.y2_columns is populated (from metadata "Visual Y2" usage), those
-    measures go on the secondary axis as lines. Otherwise falls back to
-    putting all measures except the last on bars and the last on line.
+    Two modes:
+    1. Small multiples (single measure + 2 grouping columns): renders one
+       column subplot per unique value of the first grouping (e.g. Channel),
+       with the second grouping (e.g. Months) as the X-axis. This matches
+       the PBI "small multiples" layout.
+    2. Dual-axis combo (2+ measures): bars on primary Y, line on secondary Y.
     """
     categories, values = classify_columns(df, spec)
     if not categories or not values:
         return _render_table(df, spec)
 
+    # --- Mode 1: small multiples ---
+    # Use spec.facet_column (from Small Multiples well) if available,
+    # otherwise fall back to the legacy 2-grouping-columns heuristic.
+    explicit_facet = getattr(spec, "facet_column", "")
+    if explicit_facet or (len(values) == 1 and len(categories) >= 2):
+        # Resolve facet column from df
+        df_cols_lower_combo = {c.lower().strip(): c for c in df.columns}
+        df_cols_bare_combo = {_bare_column_name(c).lower().strip(): c for c in df.columns}
+        def _find_col_combo(name):
+            key = name.lower().strip()
+            return (df_cols_lower_combo.get(key)
+                    or df_cols_bare_combo.get(key)
+                    or df_cols_lower_combo.get(_bare_column_name(name).lower().strip()))
+
+        if explicit_facet:
+            facet_col_actual = _find_col_combo(explicit_facet)
+        else:
+            facet_col_actual = None
+
+        # Determine x_col: the first grouping column that isn't the facet
+        if facet_col_actual and categories:
+            x_col_actual = categories[0]
+        elif len(categories) >= 2:
+            facet_col_actual = categories[0]
+            x_col_actual = categories[1]
+        else:
+            return _render_table(df, spec)
+
+        facet_col = facet_col_actual
+        x_col = x_col_actual
+        measure = values[0]
+
+        facet_values = df[facet_col].dropna().unique().tolist()
+        # Preserve a natural order if possible (sort alphabetically as fallback)
+        facet_values = sorted(facet_values, key=str)
+        n_facets = len(facet_values)
+
+        # Chronological sort for x-axis
+        all_x = _sort_categories(df[x_col].dropna().unique().tolist())
+
+        fig = make_subplots(
+            rows=1, cols=n_facets,
+            subplot_titles=[str(f) for f in facet_values],
+            shared_yaxes=True,
+        )
+
+        for col_idx, facet_val in enumerate(facet_values, start=1):
+            sub_df = df[df[facet_col] == facet_val].copy()
+            # Reindex to full x_order, fill missing with 0
+            sub_df = sub_df.set_index(x_col).reindex(all_x).fillna(0).reset_index()
+            y_vals = sub_df[measure].tolist()
+            color = PBI_COLORS[col_idx - 1]
+
+            fig.add_trace(
+                go.Bar(
+                    x=all_x,
+                    y=y_vals,
+                    name=str(facet_val),
+                    marker_color=color,
+                    showlegend=False,
+                    text=[f"${v/1000:.0f}K" if v >= 1000 else f"${v:.0f}" for v in y_vals],
+                    textposition="outside",
+                    textfont={"size": 8, "family": PBI_FONT},
+                ),
+                row=1, col=col_idx,
+            )
+            # Subtitle annotation (facet label at the bottom)
+            fig.update_xaxes(
+                tickangle=45,
+                tickfont={"size": 9, "family": PBI_FONT},
+                showgrid=False,
+                linecolor="#E0E0E0",
+                row=1, col=col_idx,
+            )
+            fig.update_yaxes(
+                showgrid=True,
+                gridcolor="#E0E0E0",
+                tickformat="$,.0f",
+                tickfont={"size": 9, "family": PBI_FONT},
+                row=1, col=col_idx,
+            )
+
+        fig.update_layout(
+            title=spec.visual_name,
+            font={"family": PBI_FONT, "size": 11, "color": "#333333"},
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            bargap=0.15,
+            margin={"l": 60, "r": 20, "t": 60, "b": 60},
+            height=420,
+        )
+        return fig
+
+    # --- Mode 2: dual-axis combo (2+ measures) ---
+    sorted_index = _sort_categories(df[categories[0]].astype(str).tolist())
+    if sorted_index != df[categories[0]].astype(str).tolist():
+        df = df.set_index(categories[0]).reindex(sorted_index).reset_index()
     cat_labels = df[categories[0]].astype(str).tolist()
 
     # Resolve actual column names for y2 (case-insensitive match against df)
@@ -763,16 +1018,24 @@ def _render_combo(df, spec):
     fig = make_subplots(specs=[[{"secondary_y": bool(line_measures)}]])
 
     for i, m in enumerate(bar_measures):
+        bar_data = df[m].tolist()
         fig.add_trace(go.Bar(
-            x=cat_labels, y=df[m].tolist(), name=m,
+            x=cat_labels, y=bar_data, name=m,
             marker_color=PBI_COLORS[i % len(PBI_COLORS)],
+            text=[f"{v:,.0f}" for v in bar_data],
+            textposition="outside",
+            textfont={"size": 9, "family": PBI_FONT},
         ), secondary_y=False)
 
     for i, m in enumerate(line_measures):
+        line_data = df[m].tolist()
         fig.add_trace(go.Scatter(
-            x=cat_labels, y=df[m].tolist(), name=m,
-            mode="lines+markers",
+            x=cat_labels, y=line_data, name=m,
+            mode="lines+markers+text",
             line={"color": PBI_COLORS[(len(bar_measures) + i) % len(PBI_COLORS)], "width": 2},
+            text=[f"{v:,.0f}" for v in line_data],
+            textposition="top center",
+            textfont={"size": 9, "family": PBI_FONT},
         ), secondary_y=True)
 
     layout = get_pbi_plotly_layout()
@@ -1165,23 +1428,49 @@ def _create_presentation():
     return prs
 
 
-def _build_category_chart_data(df, categories, values):
+def _build_category_chart_data(df, categories, values, series=None):
     """Build CategoryChartData from DataFrame for bar/column/line/area/pie charts.
 
-    Handles the pivot logic: when 2+ grouping columns exist, the second
-    column is pivoted into legend series (like PBI's "Legend" well).
+    Pivot logic priority:
+    1. If `series` is provided (explicit Legend well), pivot on that column.
+    2. If 2+ grouping columns and 1 measure, pivot on the second grouping (legacy).
+    3. Otherwise each measure is a series.
 
     Returns:
         (CategoryChartData, num_series: int)
     """
     chart_data = CategoryChartData()
 
+    # Sort category axis by calendar month order if applicable
+    df = _sort_by_month(df, categories[0])
+
+    # Well-aware: explicit Legend/Series column
+    if series and len(series) == 1 and len(values) == 1 and categories:
+        pivot_df = df.pivot_table(
+            index=categories[0], columns=series[0],
+            values=values[0], aggfunc="sum"
+        ).fillna(0)
+        # Restore month order after pivot (pivot_table re-sorts index)
+        month_keys = {v.lower(): i for v, i in _MONTH_ORDER.items()}
+        idx_lower = [str(c).lower() for c in pivot_df.index]
+        if all(v in month_keys for v in idx_lower):
+            pivot_df = pivot_df.iloc[sorted(range(len(pivot_df)),
+                                            key=lambda i: month_keys[idx_lower[i]])]
+        chart_data.categories = [str(c) for c in pivot_df.index]
+        for col in pivot_df.columns:
+            chart_data.add_series(str(col), pivot_df[col].tolist())
+        return chart_data, len(pivot_df.columns)
+
     if len(categories) >= 2 and len(values) == 1:
-        # Pivot second grouping column into series
+        # Legacy: pivot second grouping column into series
         pivot_df = df.pivot_table(
             index=categories[0], columns=categories[1],
             values=values[0], aggfunc="sum"
         ).fillna(0)
+        idx_lower = [str(c).lower() for c in pivot_df.index]
+        if all(v in _MONTH_ORDER for v in idx_lower):
+            pivot_df = pivot_df.iloc[sorted(range(len(pivot_df)),
+                                            key=lambda i: _MONTH_ORDER[idx_lower[i]])]
         chart_data.categories = [str(c) for c in pivot_df.index]
         for col in pivot_df.columns:
             chart_data.add_series(str(col), pivot_df[col].tolist())
@@ -1189,7 +1478,7 @@ def _build_category_chart_data(df, categories, values):
     else:
         chart_data.categories = df[categories[0]].astype(str).tolist()
         for v in values:
-            chart_data.add_series(v, df[v].tolist())
+            chart_data.add_series(v, df[v].fillna(0).tolist())
         return chart_data, len(values)
 
 
@@ -1226,7 +1515,85 @@ def _build_xy_chart_data(df, spec):
     return chart_data, num_series
 
 
-def _style_native_chart(chart, spec, num_series, categories=None, values=None):
+_C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+
+# Calendar order for month names (abbreviated and full)
+_MONTH_ORDER = {
+    m: i for i, m in enumerate([
+        "jan","feb","mar","apr","may","jun",
+        "jul","aug","sep","oct","nov","dec",
+        "january","february","march","april","june",
+        "july","august","september","october","november","december",
+    ])
+}
+
+def _sort_by_month(df, col):
+    """Return df sorted by calendar month order if col contains month names.
+    Falls back to original order if col doesn't look like months."""
+    vals = df[col].dropna().astype(str).str.lower().unique()
+    if all(v in _MONTH_ORDER for v in vals):
+        df = df.copy()
+        df["_month_sort"] = df[col].str.lower().map(_MONTH_ORDER)
+        df = df.sort_values("_month_sort").drop(columns=["_month_sort"])
+    return df
+
+
+def _suppress_zero_data_labels(chart, series_values_list):
+    """Inject <c:dLbl><c:idx val="N"/><c:delete val="1"/></c:dLbl> for zero-value
+    data points so they don't show a cluttering '0' label on the chart.
+
+    series_values_list: list of lists, one per series, each containing numeric values
+    (in the same order as the chart series). Zero/NaN values get their label deleted.
+    """
+    C = _C_NS
+    plot_elem = chart._element.find(f".//{{{C}}}plotArea")
+    if plot_elem is None:
+        return
+    # Collect all <c:ser> elements across all chart types in plotArea
+    ser_elems = plot_elem.findall(f".//{{{C}}}ser")
+    for ser_idx, ser_el in enumerate(ser_elems):
+        if ser_idx >= len(series_values_list):
+            break
+        values = series_values_list[ser_idx]
+        zero_indices = [i for i, v in enumerate(values) if v is None or v == 0]
+        if not zero_indices:
+            continue
+        # Find or create <c:dLbls> inside this <c:ser>
+        dlbls_el = ser_el.find(f"{{{C}}}dLbls")
+        if dlbls_el is None:
+            # Create and insert <c:dLbls> — must appear before <c:marker>/<c:invertIfNegative>
+            dlbls_el = etree.SubElement(ser_el, f"{{{C}}}dLbls")
+        for pt_idx in zero_indices:
+            dlbl = etree.SubElement(dlbls_el, f"{{{C}}}dLbl")
+            idx_el = etree.SubElement(dlbl, f"{{{C}}}idx")
+            idx_el.set("val", str(pt_idx))
+            del_el = etree.SubElement(dlbl, f"{{{C}}}delete")
+            del_el.set("val", "1")
+
+
+def _set_dlbl_pos_xml(data_labels, pos_val):
+    """Inject <c:dLblPos val="..."/> directly into a DataLabels XML element.
+
+    The python-pptx .position API inserts a <c:txPr> sibling that causes
+    PowerPoint to reject pie/donut chart files. Direct XML injection avoids
+    this by placing <c:dLblPos> before <c:showLegendKey> per the OOXML schema.
+    """
+    dl_elem = data_labels._element
+    tag = f"{{{_C_NS}}}dLblPos"
+    existing = dl_elem.find(tag)
+    if existing is not None:
+        existing.set("val", pos_val)
+        return
+    pos_elem = etree.SubElement(dl_elem, tag)
+    pos_elem.set("val", pos_val)
+    # Move it before showLegendKey to match OOXML sequence
+    show_key = dl_elem.find(f"{{{_C_NS}}}showLegendKey")
+    if show_key is not None:
+        show_key.addprevious(pos_elem)
+
+
+def _style_native_chart(chart, spec, num_series, categories=None, values=None,
+                        show_title=True):
     """Apply PBI styling to a native python-pptx chart.
 
     Sets title, legend, series colors, axis formatting, and axis labels
@@ -1238,20 +1605,26 @@ def _style_native_chart(chart, spec, num_series, categories=None, values=None):
         num_series: number of data series (for legend logic)
         categories: list of category column names (for axis labels)
         values: list of measure column names (for axis labels)
+        show_title: whether to show chart title (default True)
     """
     categories = categories or []
     values = values or []
+    is_pie_donut = spec.visual_type in ("pieChart", "donutChart")
 
     # Title
-    chart.has_title = True
-    title_para = chart.chart_title.text_frame.paragraphs[0]
-    title_para.text = spec.visual_name
-    title_para.font.size = Pt(18)
-    title_para.font.name = PBI_FONT
-    title_para.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    if show_title:
+        chart.has_title = True
+        title_para = chart.chart_title.text_frame.paragraphs[0]
+        title_para.text = spec.visual_name
+        title_para.font.size = Pt(18)
+        title_para.font.name = PBI_FONT
+        title_para.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    else:
+        chart.has_title = False
 
-    # Legend at bottom (show when multiple series)
-    if num_series > 1:
+    # Legend: always show for pie/donut (categories), show for multi-series others
+    show_legend = is_pie_donut or num_series > 1
+    if show_legend:
         chart.has_legend = True
         chart.legend.position = XL_LEGEND_POSITION.BOTTOM
         chart.legend.include_in_layout = False
@@ -1260,12 +1633,47 @@ def _style_native_chart(chart, spec, num_series, categories=None, values=None):
     else:
         chart.has_legend = False
 
-    # Apply PBI colors to each series
+    # Apply PBI colors to each series and enable data labels
+    _label_pos_map = {
+        "barChart": XL_LABEL_POSITION.OUTSIDE_END,
+        "clusteredBarChart": XL_LABEL_POSITION.OUTSIDE_END,
+        "stackedBarChart": XL_LABEL_POSITION.CENTER,
+        "hundredPercentStackedBarChart": XL_LABEL_POSITION.CENTER,
+        "columnChart": XL_LABEL_POSITION.OUTSIDE_END,
+        "clusteredColumnChart": XL_LABEL_POSITION.OUTSIDE_END,
+        "stackedColumnChart": XL_LABEL_POSITION.CENTER,
+        "hundredPercentStackedColumnChart": XL_LABEL_POSITION.CENTER,
+        "lineChart": XL_LABEL_POSITION.ABOVE,
+        "areaChart": XL_LABEL_POSITION.ABOVE,
+        "stackedAreaChart": XL_LABEL_POSITION.ABOVE,
+        "scatterChart": XL_LABEL_POSITION.RIGHT,
+        "pieChart": XL_LABEL_POSITION.BEST_FIT,
+        "donutChart": XL_LABEL_POSITION.BEST_FIT,
+    }
+    label_pos = _label_pos_map.get(spec.visual_type)
+
     plot = chart.plots[0]
     for i, series in enumerate(plot.series):
         fill = series.format.fill
         fill.solid()
         fill.fore_color.rgb = PBI_RGB_COLORS[i % len(PBI_RGB_COLORS)]
+        # Data labels — show value for bar/column/scatter; suppress for line/area
+        # (line charts with many points get very cluttered with per-point labels)
+        _no_label_types = ("lineChart", "areaChart", "stackedAreaChart",
+                           "lineClusteredColumnComboChart", "lineStackedColumnComboChart")
+        if is_pie_donut:
+            series.data_labels.show_value = False
+            series.data_labels.show_percentage = True
+            series.data_labels.show_category_name = False
+        elif spec.visual_type in _no_label_types:
+            series.data_labels.show_value = False
+        else:
+            series.data_labels.show_value = True
+        if not is_pie_donut and label_pos is not None:
+            try:
+                series.data_labels.position = label_pos
+            except Exception:
+                pass
 
     # Axis font styling and labels
     try:
@@ -1290,6 +1698,20 @@ def _style_native_chart(chart, spec, num_series, categories=None, values=None):
         val_ax.tick_labels.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
         val_ax.has_major_gridlines = True
         val_ax.major_gridlines.format.line.color.rgb = RGBColor(0xE0, 0xE0, 0xE0)
+        # Auto-detect percentage format: if measure name contains % / YoY / rate / pct
+        # or if all numeric values are in (-2, 2) range (likely a ratio/percentage)
+        _pct_keywords = ("% ", "%", "yoy", "rate", "pct", "ratio", "change", "growth", "variance")
+        _is_pct = any(kw in v.lower() for v in values for kw in _pct_keywords)
+        if not _is_pct and values:
+            try:
+                numeric_vals = df[values[0]].dropna()
+                if len(numeric_vals) > 0 and numeric_vals.abs().max() <= 20 and numeric_vals.abs().max() <= 5:
+                    _is_pct = True
+            except Exception:
+                pass
+        if _is_pct:
+            val_ax.tick_labels.number_format = "0%"
+            val_ax.tick_labels.number_format_is_linked = False
         # Value axis label
         if len(values) == 1:
             val_ax.has_title = True
@@ -1301,11 +1723,13 @@ def _style_native_chart(chart, spec, num_series, categories=None, values=None):
         pass  # pie/donut charts have no value axis
 
 
-def _add_native_chart(slide, df, spec):
+def _add_native_chart(slide, df, spec, left=None, top=None, width=None, height=None,
+                      show_title=True):
     """Add a native python-pptx chart to the slide.
 
     Routes to the correct chart type based on spec.visual_type.
     Handles bar, column, line, area, pie, donut, and scatter natively.
+    Optional position params override the default centered placement.
 
     Returns:
         True if chart was added successfully, False otherwise
@@ -1313,6 +1737,11 @@ def _add_native_chart(slide, df, spec):
     chart_type_enum = NATIVE_CHART_MAP.get(spec.visual_type)
     if chart_type_enum is None:
         return False
+
+    c_left = left if left is not None else CHART_LEFT
+    c_top = top if top is not None else CHART_TOP
+    c_width = width if width is not None else CHART_WIDTH
+    c_height = height if height is not None else CHART_HEIGHT
 
     categories, values = classify_columns(df, spec)
 
@@ -1322,7 +1751,7 @@ def _add_native_chart(slide, df, spec):
         if chart_data is None:
             return False
         chart_frame = slide.shapes.add_chart(
-            chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+            chart_type_enum, c_left, c_top, c_width, c_height,
             chart_data
         )
         chart = chart_frame.chart
@@ -1330,7 +1759,8 @@ def _add_native_chart(slide, df, spec):
         x_label = [values[0]] if values else []
         y_label = [values[1]] if len(values) >= 2 else []
         _style_native_chart(chart, spec, num_series,
-                            categories=x_label, values=y_label)
+                            categories=x_label, values=y_label,
+                            show_title=show_title)
         # Scatter markers: set size
         for series in chart.plots[0].series:
             series.marker.size = 10
@@ -1347,11 +1777,11 @@ def _add_native_chart(slide, df, spec):
                 [float(row[v]) if pd.notna(row[v]) else 0 for v in values]
             )
             chart_frame = slide.shapes.add_chart(
-                chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+                chart_type_enum, c_left, c_top, c_width, c_height,
                 chart_data
             )
             chart = chart_frame.chart
-            _style_native_chart(chart, spec, 1)
+            _style_native_chart(chart, spec, 1, show_title=show_title)
             # Color individual pie/donut slices
             plot = chart.plots[0]
             for i, point in enumerate(plot.series[0].points):
@@ -1369,14 +1799,21 @@ def _add_native_chart(slide, df, spec):
             df = df.sort_values(values[0], ascending=False)
 
     # --- Standard category charts (bar, column, line, area, pie, donut) ---
-    chart_data, num_series = _build_category_chart_data(df, categories, values)
+    series_cols = _resolve_series(df, spec)
+    chart_data, num_series = _build_category_chart_data(df, categories, values, series_cols)
     chart_frame = slide.shapes.add_chart(
-        chart_type_enum, CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT,
+        chart_type_enum, c_left, c_top, c_width, c_height,
         chart_data
     )
     chart = chart_frame.chart
     _style_native_chart(chart, spec, num_series,
-                        categories=categories, values=values)
+                        categories=categories, values=values,
+                        show_title=show_title)
+
+    # Suppress "0" data labels on zero-fill pivot entries (clutters clustered charts)
+    if num_series > 1:
+        series_vals = [list(s.values) for s in chart.plots[0].series]
+        _suppress_zero_data_labels(chart, series_vals)
 
     # Pie/donut: color individual slices instead of series
     if spec.visual_type in ("pieChart", "donutChart"):
@@ -1388,11 +1825,560 @@ def _add_native_chart(slide, df, spec):
     return True
 
 
-def _add_png_to_slide(slide, png_path):
-    """Insert a plotly PNG image onto a slide, centered within the chart area."""
+def _add_png_to_slide(slide, png_path, left=None, top=None, width=None, height=None):
+    """Insert a plotly PNG image onto a slide. Optional position params override defaults."""
     slide.shapes.add_picture(
-        str(png_path), CHART_LEFT, CHART_TOP, CHART_WIDTH, CHART_HEIGHT
+        str(png_path),
+        left if left is not None else CHART_LEFT,
+        top if top is not None else CHART_TOP,
+        width if width is not None else CHART_WIDTH,
+        height if height is not None else CHART_HEIGHT,
     )
+
+
+# =============================================================================
+# NATIVE PPTX RENDERERS — Table, Card, KPI, Ribbon, Combo
+# =============================================================================
+
+def _format_cell_value(value, col_name=""):
+    """Format a cell value for display in a PowerPoint table or card.
+
+    Detects currency and percentage patterns from column name keywords
+    and applies human-readable formatting.
+    """
+    if pd.isna(value) or str(value).strip() in ("", "(Blank)"):
+        return ""
+    col_lower = col_name.lower()
+    is_currency = any(kw in col_lower for kw in (
+        "revenue", "sales", "profit", "cost", "price", "amount", "spend",
+        "budget", "loss", "premium", "income", "margin$", "dollar",
+    ))
+    is_pct = any(kw in col_lower for kw in (
+        "ratio", "percent", "%", "rate", "proportion", "share",
+    ))
+    try:
+        num = float(value)
+        if is_pct and abs(num) <= 10:
+            # Looks like a decimal ratio (0.85) — convert to percent
+            return f"{num * 100:.1f}%"
+        elif is_pct:
+            return f"{num:.1f}%"
+        elif is_currency:
+            if abs(num) >= 1_000_000_000:
+                return f"${num / 1_000_000_000:,.1f}B"
+            elif abs(num) >= 1_000_000:
+                return f"${num / 1_000_000:,.1f}M"
+            elif abs(num) >= 1_000:
+                return f"${num:,.0f}"
+            else:
+                return f"${num:,.2f}"
+        elif num == int(num) and abs(num) < 1e15:
+            return f"{int(num):,}"
+        else:
+            return f"{num:,.2f}"
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _add_native_table(slide, df, spec, left=None, top=None, width=None, height=None,
+                      show_title=True):
+    """Add a native editable PowerPoint table to the slide.
+
+    Styled with PBI dark-blue header, alternating row colors, auto-fit column
+    widths, and Segoe UI font throughout. Caps at 50 rows.
+
+    Returns:
+        True if table was added successfully.
+    """
+    max_rows = 50
+    display_df = df.head(max_rows)
+    num_rows = len(display_df)
+    num_cols = len(display_df.columns)
+
+    if num_rows == 0 or num_cols == 0:
+        return False
+
+    # Reserve space for title
+    title_height = Inches(0.5) if show_title else Inches(0)
+    t_left = left if left is not None else CHART_LEFT
+    t_top = (top if top is not None else CHART_TOP) + title_height
+    t_width = width if width is not None else CHART_WIDTH
+    t_height = (height if height is not None else CHART_HEIGHT) - title_height
+
+    # Add title text box
+    if show_title:
+        title_box = slide.shapes.add_textbox(
+            t_left, t_top - title_height, t_width, title_height
+        )
+        tf = title_box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        title_text = spec.visual_name
+        if len(df) > max_rows:
+            title_text += f" (showing {max_rows} of {len(df)} rows)"
+        p.text = title_text
+        p.font.size = Pt(18)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    # +1 for header row
+    table_shape = slide.shapes.add_table(
+        num_rows + 1, num_cols, t_left, t_top, t_width, t_height
+    )
+    table = table_shape.table
+
+    # Distribute column widths evenly
+    col_width = int(t_width / num_cols)
+    for i in range(num_cols):
+        table.columns[i].width = col_width
+
+    # Header row — dark blue background, white text
+    for j, col_name in enumerate(display_df.columns):
+        cell = table.cell(0, j)
+        cell.text = str(col_name)
+        p = cell.text_frame.paragraphs[0]
+        p.font.size = Pt(10)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        p.font.bold = True
+        # Dark blue fill
+        cell_fill = cell.fill
+        cell_fill.solid()
+        cell_fill.fore_color.rgb = PBI_RGB_COLORS[1]  # #12239E
+
+    # Data rows — alternating white/#F5F5F5
+    for i in range(num_rows):
+        row_color = RGBColor(0xFF, 0xFF, 0xFF) if i % 2 == 0 else RGBColor(0xF5, 0xF5, 0xF5)
+        for j, col_name in enumerate(display_df.columns):
+            cell = table.cell(i + 1, j)
+            raw_val = display_df.iloc[i, j]
+            cell.text = _format_cell_value(raw_val, col_name)
+            p = cell.text_frame.paragraphs[0]
+            p.font.size = Pt(9)
+            p.font.name = PBI_FONT
+            p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+            # Row fill
+            cell_fill = cell.fill
+            cell_fill.solid()
+            cell_fill.fore_color.rgb = row_color
+
+    return True
+
+
+def _add_native_card(slide, df, spec, left=None, top=None, width=None, height=None,
+                     show_title=True):
+    """Add native PowerPoint card visual — large styled text boxes.
+
+    Single card: one big centered number with label below.
+    Multi-card: side-by-side cards evenly distributed.
+
+    Returns:
+        True if card was added successfully.
+    """
+    _, values = classify_columns(df, spec)
+    if not values or df.empty:
+        return False
+
+    row = df.iloc[0]
+    c_left = left if left is not None else CHART_LEFT
+    c_top = top if top is not None else CHART_TOP
+    c_width = width if width is not None else CHART_WIDTH
+    c_height = height if height is not None else CHART_HEIGHT
+
+    num_cards = len(values)
+    card_width = int(c_width / num_cards)
+    card_padding = Inches(0.2)
+
+    for i, v in enumerate(values):
+        val = row[v]
+        formatted = _format_cell_value(val, v)
+
+        # Card bounding box
+        box_left = c_left + card_width * i + card_padding
+        box_width = card_width - card_padding * 2
+
+        # Value text box — large centered number
+        value_top = c_top + Inches(1.5)
+        value_height = Inches(2.0)
+        value_box = slide.shapes.add_textbox(box_left, value_top, box_width, value_height)
+        tf = value_box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = formatted
+        p.alignment = PP_ALIGN.CENTER
+        # Scale font size based on number of cards
+        font_size = 60 if num_cards == 1 else (44 if num_cards <= 2 else 32)
+        p.font.size = Pt(font_size)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = PBI_RGB_COLORS[i % len(PBI_RGB_COLORS)]
+        p.font.bold = True
+
+        # Label text box — measure name below
+        label_top = value_top + value_height
+        label_height = Inches(0.6)
+        label_box = slide.shapes.add_textbox(box_left, label_top, box_width, label_height)
+        tf = label_box.text_frame
+        tf.word_wrap = True
+        p = tf.paragraphs[0]
+        p.text = v
+        p.alignment = PP_ALIGN.CENTER
+        p.font.size = Pt(14)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+
+    # Overall title
+    if show_title and spec.visual_name:
+        title_box = slide.shapes.add_textbox(c_left, c_top, c_width, Inches(0.5))
+        tf = title_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = spec.visual_name
+        p.alignment = PP_ALIGN.CENTER
+        p.font.size = Pt(18)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    return True
+
+
+def _add_native_kpi(slide, df, spec, left=None, top=None, width=None, height=None,
+                    show_title=True):
+    """Add native PowerPoint KPI visual — big number + delta indicator.
+
+    First measure = value, second measure = reference (delta = value - reference).
+    Delta shown in green (positive) or red (negative) below the main value.
+
+    Returns:
+        True if KPI was added successfully.
+    """
+    _, values = classify_columns(df, spec)
+    if not values or df.empty:
+        return False
+
+    row = df.iloc[0]
+    c_left = left if left is not None else CHART_LEFT
+    c_top = top if top is not None else CHART_TOP
+    c_width = width if width is not None else CHART_WIDTH
+    c_height = height if height is not None else CHART_HEIGHT
+
+    value = float(row[values[0]]) if pd.notna(row[values[0]]) else 0
+    formatted_value = _format_cell_value(value, values[0])
+
+    # Title
+    if show_title and spec.visual_name:
+        title_box = slide.shapes.add_textbox(c_left, c_top, c_width, Inches(0.5))
+        tf = title_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = spec.visual_name
+        p.alignment = PP_ALIGN.CENTER
+        p.font.size = Pt(18)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    # Main value — large centered
+    value_top = c_top + Inches(1.5)
+    value_box = slide.shapes.add_textbox(c_left, value_top, c_width, Inches(2.0))
+    tf = value_box.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.text = formatted_value
+    p.alignment = PP_ALIGN.CENTER
+    p.font.size = Pt(54)
+    p.font.name = PBI_FONT
+    p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+    p.font.bold = True
+
+    # Delta indicator (if second measure exists)
+    if len(values) >= 2:
+        reference = float(row[values[1]]) if pd.notna(row[values[1]]) else 0
+        delta = value - reference
+        if reference != 0:
+            delta_pct = delta / abs(reference) * 100
+            delta_text = f"{'▲' if delta >= 0 else '▼'} {abs(delta_pct):.1f}%"
+        else:
+            delta_text = f"{'▲' if delta >= 0 else '▼'} {_format_cell_value(abs(delta), values[0])}"
+        delta_color = RGBColor(0x1A, 0xAB, 0x40) if delta >= 0 else RGBColor(0xD6, 0x45, 0x50)
+
+        delta_top = value_top + Inches(2.0)
+        delta_box = slide.shapes.add_textbox(c_left, delta_top, c_width, Inches(0.8))
+        tf = delta_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = delta_text
+        p.alignment = PP_ALIGN.CENTER
+        p.font.size = Pt(24)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = delta_color
+        p.font.bold = True
+
+        # Reference label
+        ref_top = delta_top + Inches(0.8)
+        ref_box = slide.shapes.add_textbox(c_left, ref_top, c_width, Inches(0.5))
+        tf = ref_box.text_frame
+        p = tf.paragraphs[0]
+        p.text = f"vs {values[1]}: {_format_cell_value(reference, values[1])}"
+        p.alignment = PP_ALIGN.CENTER
+        p.font.size = Pt(12)
+        p.font.name = PBI_FONT
+        p.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+
+    return True
+
+
+def _add_native_ribbon(slide, df, spec, left=None, top=None, width=None, height=None,
+                       show_title=True):
+    """Add native PowerPoint ribbon chart as AREA_STACKED.
+
+    Ribbon charts are visually equivalent to stacked area charts.
+    Uses the same pivot logic as the plotly renderer.
+
+    Returns:
+        True if chart was added successfully.
+    """
+    categories, values = classify_columns(df, spec)
+    if not categories or not values:
+        return False
+
+    c_left = left if left is not None else CHART_LEFT
+    c_top = top if top is not None else CHART_TOP
+    c_width = width if width is not None else CHART_WIDTH
+    c_height = height if height is not None else CHART_HEIGHT
+
+    df_sorted = df.sort_values(categories[0])
+    chart_data = CategoryChartData()
+
+    if len(categories) >= 2 and len(values) == 1:
+        # Pivot second grouping into series
+        pivot_df = df_sorted.pivot_table(
+            index=categories[0], columns=categories[1],
+            values=values[0], aggfunc="sum"
+        ).fillna(0)
+        chart_data.categories = [str(c) for c in pivot_df.index]
+        num_series = len(pivot_df.columns)
+        for col in pivot_df.columns:
+            chart_data.add_series(str(col), pivot_df[col].tolist())
+    else:
+        chart_data.categories = df_sorted[categories[0]].astype(str).tolist()
+        num_series = len(values)
+        for v in values:
+            chart_data.add_series(v, df_sorted[v].tolist())
+
+    chart_frame = slide.shapes.add_chart(
+        XL_CHART_TYPE.AREA_STACKED, c_left, c_top, c_width, c_height, chart_data
+    )
+    chart = chart_frame.chart
+    _style_native_chart(chart, spec, num_series,
+                        categories=categories, values=values,
+                        show_title=show_title)
+    return True
+
+
+def _add_native_combo(slide, df, spec, left=None, top=None, width=None, height=None,
+                      show_title=True):
+    """Add native PowerPoint combo chart — columns + line on secondary axis.
+
+    Creates a column chart, then patches the XML to add a line chart overlay
+    on a secondary value axis. Uses metadata y2_columns to determine which
+    measures go on the line (secondary axis).
+
+    Single-measure + two-grouping-columns pattern: pivot second grouping as
+    channel series (stacked bars per X-axis category) and add a "Total" line
+    series showing the sum across all channels. This handles the common PBI
+    pattern of "Channel stacked by Month + Total line".
+
+    Returns:
+        True if chart was added successfully.
+    """
+    categories, values = classify_columns(df, spec)
+    if not categories or not values:
+        return False
+
+    c_left = left if left is not None else CHART_LEFT
+    c_top = top if top is not None else CHART_TOP
+    c_width = width if width is not None else CHART_WIDTH
+    c_height = height if height is not None else CHART_HEIGHT
+
+    # --- Single-measure + two-grouping-column case ---
+    # This is a "small multiples" layout (e.g. Channel facets × Monthly bars).
+    # PowerPoint has no native small-multiples chart type, so fall back to
+    # the plotly renderer which generates properly faceted subplots.
+    if len(values) == 1 and len(categories) >= 2:
+        return False
+
+    # --- Multi-measure case (original logic) ---
+    if len(values) < 2:
+        return False
+
+    # Resolve y2 measures (secondary axis = line)
+    df_cols_lower = {c.lower().strip(): c for c in df.columns}
+    y2_actual = set()
+    for y2 in spec.y2_columns:
+        actual = df_cols_lower.get(y2.lower().strip())
+        if actual:
+            y2_actual.add(actual)
+
+    if y2_actual:
+        bar_measures = [v for v in values if v not in y2_actual]
+        line_measures = [v for v in values if v in y2_actual]
+    elif len(values) > 1:
+        bar_measures = values[:-1]
+        line_measures = [values[-1]]
+    else:
+        bar_measures = values
+        line_measures = []
+
+    if not line_measures:
+        return False  # No secondary axis — use regular column chart
+
+    # Determine base chart type based on visual type
+    is_stacked = "stacked" in spec.visual_type.lower()
+    base_chart_type = XL_CHART_TYPE.COLUMN_STACKED if is_stacked else XL_CHART_TYPE.COLUMN_CLUSTERED
+
+    # Build chart data with ALL measures (bars first, then lines)
+    all_measures = bar_measures + line_measures
+    chart_data = CategoryChartData()
+    cat_labels = df[categories[0]].astype(str).tolist()
+    chart_data.categories = cat_labels
+    for m in all_measures:
+        vals = df[m].fillna(0).tolist()
+        chart_data.add_series(m, vals)
+
+    # Add the chart as column initially
+    chart_frame = slide.shapes.add_chart(
+        base_chart_type, c_left, c_top, c_width, c_height, chart_data
+    )
+    chart = chart_frame.chart
+
+    # --- XML surgery: move line measures to a lineChart on secondary axis ---
+    nsmap = {
+        'c': 'http://schemas.openxmlformats.org/drawingml/2006/chart',
+        'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+        'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    }
+    chart_xml = chart._chartSpace
+    plot_area = chart_xml.find('.//c:plotArea', nsmap)
+    bar_chart_el = plot_area.find('c:barChart', nsmap)
+    if bar_chart_el is None:
+        return False
+
+    # Create a lineChart element
+    line_chart_el = etree.SubElement(plot_area, '{http://schemas.openxmlformats.org/drawingml/2006/chart}lineChart')
+
+    # Add grouping to line chart
+    grouping_el = etree.SubElement(line_chart_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}grouping')
+    grouping_el.set('val', 'standard')
+
+    # Move line series from barChart to lineChart
+    bar_series_list = bar_chart_el.findall('c:ser', nsmap)
+    line_series_indices = list(range(len(bar_measures), len(all_measures)))
+
+    for idx in sorted(line_series_indices, reverse=True):
+        if idx < len(bar_series_list):
+            ser_el = bar_series_list[idx]
+            bar_chart_el.remove(ser_el)
+
+            # Add marker to line series for visibility
+            marker_el = etree.SubElement(ser_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}marker')
+            symbol_el = etree.SubElement(marker_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}symbol')
+            symbol_el.set('val', 'circle')
+            size_el = etree.SubElement(marker_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}size')
+            size_el.set('val', '5')
+
+            line_chart_el.append(ser_el)
+
+    # Add axis references: line chart uses secondary value axis (catAx=primary, valAx=secondary)
+    # Primary axes IDs (already exist on bar chart)
+    existing_cat_ax = plot_area.find('c:catAx', nsmap)
+    existing_val_ax = plot_area.find('c:valAx', nsmap)
+    if existing_cat_ax is None or existing_val_ax is None:
+        return False
+
+    primary_cat_id = existing_cat_ax.find('c:axId', nsmap).get('val')
+    primary_val_id = existing_val_ax.find('c:axId', nsmap).get('val')
+
+    # Secondary axis IDs
+    sec_cat_id = str(int(primary_cat_id) + 100)
+    sec_val_id = str(int(primary_val_id) + 100)
+
+    # Add axId refs to line chart element
+    cat_ax_ref = etree.SubElement(line_chart_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axId')
+    cat_ax_ref.set('val', sec_cat_id)
+    val_ax_ref = etree.SubElement(line_chart_el, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axId')
+    val_ax_ref.set('val', sec_val_id)
+
+    # Create secondary category axis (hidden, shares labels with primary)
+    sec_cat_ax = etree.SubElement(plot_area, '{http://schemas.openxmlformats.org/drawingml/2006/chart}catAx')
+    _ax_id = etree.SubElement(sec_cat_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axId')
+    _ax_id.set('val', sec_cat_id)
+    _scaling = etree.SubElement(sec_cat_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}scaling')
+    _orient = etree.SubElement(_scaling, '{http://schemas.openxmlformats.org/drawingml/2006/chart}orientation')
+    _orient.set('val', 'minMax')
+    _delete = etree.SubElement(sec_cat_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}delete')
+    _delete.set('val', '1')  # hidden
+    _ax_pos = etree.SubElement(sec_cat_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axPos')
+    _ax_pos.set('val', 'b')
+    _cross_ax = etree.SubElement(sec_cat_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}crossAx')
+    _cross_ax.set('val', sec_val_id)
+
+    # Create secondary value axis (visible, on the right side)
+    sec_val_ax = etree.SubElement(plot_area, '{http://schemas.openxmlformats.org/drawingml/2006/chart}valAx')
+    _ax_id2 = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axId')
+    _ax_id2.set('val', sec_val_id)
+    _scaling2 = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}scaling')
+    _orient2 = etree.SubElement(_scaling2, '{http://schemas.openxmlformats.org/drawingml/2006/chart}orientation')
+    _orient2.set('val', 'minMax')
+    _delete2 = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}delete')
+    _delete2.set('val', '0')  # visible
+    _ax_pos2 = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}axPos')
+    _ax_pos2.set('val', 'r')  # right side
+    _cross_ax2 = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}crossAx')
+    _cross_ax2.set('val', sec_cat_id)
+    _crosses = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}crosses')
+    _crosses.set('val', 'max')  # cross at max so it appears on right
+
+    # Style: font on secondary axis
+    _num_fmt = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}numFmt')
+    _num_fmt.set('formatCode', 'General')
+    _num_fmt.set('sourceLinked', '1')
+    _major_gridlines = etree.SubElement(sec_val_ax, '{http://schemas.openxmlformats.org/drawingml/2006/chart}majorGridlines')
+
+    # Apply PBI styling to the chart (title, legend, colors for bar series)
+    num_series = len(all_measures)
+    _style_native_chart(chart, spec, num_series,
+                        categories=categories, values=bar_measures,
+                        show_title=show_title)
+
+    # Re-color line series (they were moved, so reapply from chart object)
+    # The line series colors need to be set via XML since they're in a separate plot
+    line_sers = line_chart_el.findall('c:ser', nsmap)
+    for i, ser in enumerate(line_sers):
+        color_idx = (len(bar_measures) + i) % len(PBI_RGB_COLORS)
+        rgb = PBI_RGB_COLORS[color_idx]
+        hex_color = f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
+        # Set line color via spPr
+        sp_pr = ser.find('c:spPr', nsmap)
+        if sp_pr is None:
+            sp_pr = etree.SubElement(ser, '{http://schemas.openxmlformats.org/drawingml/2006/chart}spPr')
+        ln = etree.SubElement(sp_pr, '{http://schemas.openxmlformats.org/drawingml/2006/main}ln')
+        ln.set('w', '25400')  # 2pt line width
+        solid_fill = etree.SubElement(ln, '{http://schemas.openxmlformats.org/drawingml/2006/main}solidFill')
+        srgb = etree.SubElement(solid_fill, '{http://schemas.openxmlformats.org/drawingml/2006/main}srgbClr')
+        srgb.set('val', hex_color)
+
+    return True
+
+
+# Set of visual types that have native PPTX renderers (beyond NATIVE_CHART_MAP)
+NATIVE_EXTENDED_MAP = {
+    "tableEx": _add_native_table,
+    "pivotTable": _add_native_table,
+    "card": _add_native_card,
+    "cardVisual": _add_native_card,
+    "multiRowCard": _add_native_card,
+    "kpi": _add_native_kpi,
+    "ribbonChart": _add_native_ribbon,
+    "lineClusteredColumnComboChart": _add_native_combo,
+    "lineStackedColumnComboChart": _add_native_combo,
+}
 
 
 # =============================================================================
@@ -1502,13 +2488,22 @@ def generate_chart_pptx(df, spec=None, visual_type=None, visual_name=None,
         blank_layout = prs.slide_layouts[6]  # blank slide layout
         slide = prs.slides.add_slide(blank_layout)
 
-        # Try native chart first for supported types
+        # Try native chart first for standard chart types (bar, column, line, etc.)
         if spec.visual_type in NATIVE_CHART_MAP:
             success = _add_native_chart(slide, df, spec)
             if success:
                 print(f"  Generated (native PPTX): {spec.visual_name} ({spec.visual_type})")
                 return prs
-            print(f"  Native chart failed for '{spec.visual_name}', using PNG fallback")
+            print(f"  Native chart failed for '{spec.visual_name}', trying extended...")
+
+        # Try extended native renderers (table, card, KPI, ribbon, combo)
+        if spec.visual_type in NATIVE_EXTENDED_MAP:
+            renderer_fn = NATIVE_EXTENDED_MAP[spec.visual_type]
+            success = renderer_fn(slide, df, spec)
+            if success:
+                print(f"  Generated (native PPTX): {spec.visual_name} ({spec.visual_type})")
+                return prs
+            print(f"  Extended native failed for '{spec.visual_name}', using PNG fallback")
 
         # PNG fallback: render with plotly, insert image on slide
         renderer = CHART_TYPE_ROUTER.get(spec.visual_type)

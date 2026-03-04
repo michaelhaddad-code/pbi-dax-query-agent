@@ -32,13 +32,30 @@ except ImportError:
 # CORE LOGIC: Field Classification
 # =============================================================================
 
-def classify_field(usage):
+def classify_field(usage, well=""):
     """
-    Classify a field's role in the DAX query based on its Usage label
-    from the metadata extractor.
+    Classify a field's role in the DAX query.
 
-    Returns: 'grouping', 'measure', 'filter', 'slicer', or 'page_filter'
+    Prefers well assignment when available (more precise), falls back to
+    usage-label-based logic for backward compatibility with old Excel files.
+
+    Returns: 'grouping', 'measure', 'filter', 'slicer', 'page_filter',
+             'matrix_column', or 'other'
     """
+    # --- Well-based classification (preferred when well is populated) ---
+    if well:
+        w = well.lower()
+        if w == "matrix columns":
+            return "matrix_column"
+        if w in ("x-axis", "matrix rows", "legend", "small multiples", "details",
+                 "explain by", "location"):
+            return "grouping"
+        if w in ("y-axis", "y2-axis", "values", "size", "tooltip", "indicator",
+                 "trend", "target", "target value", "analyze", "play axis"):
+            return "measure"
+        # Fall through to usage-based logic for unrecognised well names
+
+    # --- Usage-label-based classification (fallback / legacy) ---
     u = usage.lower()
 
     if "slicer" in u:
@@ -90,7 +107,7 @@ def classify_visual_fields(fields):
     matrix_columns = []
 
     for f in fields:
-        role = classify_field(f["usage"])
+        role = classify_field(f["usage"], f.get("well", ""))
 
         # Implicit measures (drag-and-drop aggregation) should be treated as measures
         # even if their usage label would normally classify them as grouping (e.g.
@@ -225,6 +242,17 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
             m['measure_name'] = m['col_sm'].split(',')[0].strip()
             unique_measures.append(m)
     measures = unique_measures
+
+    # Deduplicate grouping columns by (table, column) — combo/matrix visuals can
+    # place the same field in both axis and legend wells, producing duplicate rows.
+    seen_grouping = set()
+    unique_grouping = []
+    for g in grouping:
+        key = (g['table_sm'], g['col_sm'])
+        if key not in seen_grouping:
+            seen_grouping.add(key)
+            unique_grouping.append(g)
+    grouping = unique_grouping
 
     is_slicer = visual_type == "slicer"
 
@@ -784,7 +812,7 @@ def build_bookmark_queries(bookmarks, visuals, page_filters, model=None):
             # Check for filter redundancy before wrapping
             active_filters = list(filter_exprs)
             if active_filters:
-                measure_fields = [f for f in fields if classify_field(f["usage"]) == "measure"]
+                measure_fields = [f for f in fields if classify_field(f["usage"], f.get("well", "")) == "measure"]
                 redundancy_warnings = check_filter_redundancy(measure_fields, active_filters, model)
                 if redundancy_warnings:
                     conflicting = {w["filter_expr"] for w in redundancy_warnings}
@@ -859,6 +887,10 @@ def read_extractor_output(filepath):
     # "Data Type" and "Semantic Model Source" — optional, added for pbixray workaround
     data_type_idx = col_map.get("Data Type")
     model_source_idx = col_map.get("Semantic Model Source")
+    # "Z Index" — optional, added for z-order tiebreaker (highest z = default visible copy)
+    z_index_idx = col_map.get("Z Index")
+    # "Well" — optional, added for well-assignment-based classification
+    well_idx = col_map.get("Well")
     has_visual_id = visual_id_idx is not None
 
     required = ["Page Name", "Visual/Table Name in PBI", "Visual Type",
@@ -883,6 +915,7 @@ def read_extractor_output(filepath):
         table_sm = row[col_map["Table in the Semantic Model"]]
         col_sm = row[col_map["Column in the Semantic Model"]]
         visual_id = (row[visual_id_idx] if has_visual_id else "") or ""
+        z_index = int(row[z_index_idx] or 0) if z_index_idx is not None else 0
 
         if not page or not visual_name:
             continue
@@ -890,6 +923,7 @@ def read_extractor_output(filepath):
         field = {
             "ui_name": ui_name or "",
             "usage": usage or "",
+            "well": (row[well_idx] if well_idx is not None else "") or "",
             "table_sm": table_sm or "",
             "col_sm": col_sm or "",
             "measure_formula": (row[formula_idx] if formula_idx is not None else "") or "",
@@ -916,6 +950,7 @@ def read_extractor_output(filepath):
                 "visual_type": visual_type,
                 "visual_name": visual_name,
                 "visual_id": visual_id,
+                "z_index": z_index,
                 "fields": [],
             }
         visuals[key]["fields"].append(field)
@@ -1126,7 +1161,7 @@ def write_output(visuals, page_filters, output_path, bookmark_queries=None,
             )
             if applicable_filters:
                 # Run redundancy check against measure formulas
-                measure_fields = [f for f in fields if classify_field(f["usage"]) == "measure"]
+                measure_fields = [f for f in fields if classify_field(f["usage"], f.get("well", "")) == "measure"]
                 redundancy_warnings = check_filter_redundancy(measure_fields, applicable_filters, model)
                 active_filters = list(applicable_filters)
                 if redundancy_warnings:
@@ -1263,6 +1298,8 @@ def find_visual(visuals, search_term):
 
     Matches against visual_name (from data dict) and against "page / visual" combined.
     Returns: list of keys that match, best matches first.
+    When multiple visuals share the same name (e.g., bookmark-toggled copies),
+    the highest z-index (default visible copy) is returned first.
     """
     search_lower = search_term.lower()
     exact = []
@@ -1278,7 +1315,11 @@ def find_visual(visuals, search_term):
         elif search_lower in name_lower or search_lower in full_lower:
             partial.append(key)
 
-    return exact + partial
+    # Sort by z-index descending so highest-z (default visible) copy comes first
+    def _z_sort_key(key):
+        return visuals[key].get("z_index", 0)
+
+    return sorted(exact, key=_z_sort_key, reverse=True) + sorted(partial, key=_z_sort_key, reverse=True)
 
 
 def get_single_visual_query(visuals, page_filters, visual_search,
@@ -1387,7 +1428,7 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     # Check for filter redundancy before wrapping with CALCULATETABLE
     active_filters = list(all_filters)
     if active_filters:
-        measure_fields = [f for f in fields if classify_field(f["usage"]) == "measure"]
+        measure_fields = [f for f in fields if classify_field(f["usage"], f.get("well", "")) == "measure"]
         redundancy_warnings = check_filter_redundancy(measure_fields, active_filters, model)
         if redundancy_warnings:
             conflicting = {w["filter_expr"] for w in redundancy_warnings}
