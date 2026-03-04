@@ -141,6 +141,12 @@ When a Matrix has fields on the Columns axis (e.g., SeparationReason → Involun
 - Indent nested expressions for readability
 - Label each output clearly: **Filtered query**, **Base query**, **Custom filter fields**
 
+**MANDATORY: After delivering the three DAX outputs, ALWAYS end with this prompt:**
+
+> *"Run this in DAX Studio or Fabric and paste the CSV results here — I'll generate a PowerPoint chart slide from it. Or pick another visual, switch pages, or load a new report."*
+
+This prompt must appear at the end of every Step 4 response, every time, without exception.
+
 ### Step 5: CHART GENERATION (Optional) — Render a Visual
 If the user has CSV data from an executed DAX query, generate a PBI-styled chart using `chart_generator.py`. This step is optional — the user can skip it and continue to the next visual.
 
@@ -167,14 +173,15 @@ python skills/chart_generator.py \
 **Output:** A single-slide `.pptx` file with a native editable chart (bar, column, line, pie, etc.) or PNG fallback for complex types. Report the output path to the user.
 
 ### Step 6: CONTINUE — Loop Back
-After delivering the DAX output (and optionally a chart), always ask:
+After chart generation (Step 5), always ask:
 
-> *"Want to pick another visual on this page, switch to a different page, generate a chart from CSV data, or load a new report?"*
+> *"Want to pick another visual on this page, switch to a different page, or load a new report?"*
 
 - **Another visual** → go to Step 3
 - **Different page** → go to Step 2
-- **Generate a chart** → go to Step 5
 - **New report** → go to Step 1
+
+**Note:** The chart generation offer is already embedded in every Step 4 response (see above). Step 6 only fires after the user has already generated a chart in Step 5.
 
 Never end the conversation after one visual. Always offer to continue.
 
