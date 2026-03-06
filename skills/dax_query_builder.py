@@ -1451,15 +1451,26 @@ def get_single_visual_query(visuals, page_filters, visual_search,
     pivot_dax_query = ""
     matrix_col_info = []
     auto_flat_measures = []
+    calc_group_auto = False
     if matrix_columns and pattern.startswith("Pattern 3M"):
         values_query = build_matrix_values_query(matrix_columns)
         matrix_col_info = [
             {"table": mc["table_sm"], "column": mc["col_sm"], "ui_name": mc["ui_name"]}
             for mc in matrix_columns
         ]
-        if column_values:
+
+        # Auto-detect calculation group items from the semantic model
+        effective_column_values = column_values
+        if not effective_column_values and model and hasattr(model, 'calculation_groups'):
+            mc = matrix_columns[0]
+            cg_key = (mc["table_sm"], mc["col_sm"])
+            if cg_key in model.calculation_groups:
+                effective_column_values = model.calculation_groups[cg_key]
+                calc_group_auto = True
+
+        if effective_column_values:
             pivot_result = build_matrix_pivot_query(
-                grouping, measures, matrix_columns, column_values, model,
+                grouping, measures, matrix_columns, effective_column_values, model,
                 flat_measures=flat_measures, sort_order=sort_order
             )
             # 3-tuple when auto-detection found flat measures, 2-tuple otherwise
@@ -1544,6 +1555,7 @@ def get_single_visual_query(visuals, page_filters, visual_search,
         "values_query": values_query,
         "pivot_dax_query": pivot_dax_query,
         "auto_flat_measures": auto_flat_measures,
+        "calc_group_auto": calc_group_auto,
     }
 
 

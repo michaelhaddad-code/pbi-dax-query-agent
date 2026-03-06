@@ -35,6 +35,7 @@ _measure_index: dict    # lowercase_name → list of (table, name) tuples
 _column_index: dict     # lowercase_name → list of (table, name) tuples
 source: str             # "pbixray" | "pbip" | ""
 relationships: list     # list of TmdlRelationship
+calculation_groups: dict  # (table_name, column_name) → [item_name, ...] in definition order
 ```
 
 Properties:
@@ -179,6 +180,7 @@ Returns one of: `"grouping"`, `"measure"`, `"filter"`, `"slicer"`, `"page_filter
       "values_query": str,           # preflight VALUES() DAX for matrix
       "pivot_dax_query": str,        # pivoted CALCULATE DAX for matrix
       "auto_flat_measures": list,    # measure ui_names excluded from pivot
+      "calc_group_auto": bool,       # True if pivot values came from calculation group TMDL
   }
   ```
 

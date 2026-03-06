@@ -56,6 +56,8 @@ class SemanticModel:
     source: str = ""
     # Relationships between tables
     relationships: list = field(default_factory=list)
+    # Calculation groups: (table_name, column_name) -> [item_name, ...] in definition order
+    calculation_groups: dict = field(default_factory=dict)
 
     @property
     def types_reliable(self) -> bool:
@@ -180,23 +182,76 @@ def _parse_columns(content: str, table_name: str) -> dict:
 
 
 # ============================================================
+# TMDL file parser — calculation groups
+# ============================================================
+
+def _parse_calculation_items(content: str, table_name: str) -> dict:
+    """Extract calculation group items from TMDL content.
+
+    Looks for a `calculationGroup` block containing `calculationItem <Name> = <expr>` entries,
+    then finds the dimension column (the one with `sourceColumn: Name`) to use as the dict key.
+
+    Returns dict of (table_name, column_name) -> [item_name_1, item_name_2, ...] in file order.
+    Returns empty dict if no calculation group found.
+    """
+    # Check if this table has a calculationGroup block
+    if "calculationGroup" not in content:
+        return {}
+
+    # Extract calculation item names in definition order
+    # Pattern: `calculationItem <Name> = <expression>` or `calculationItem '<Name>' = <expression>`
+    item_pattern = re.compile(
+        r"^\t\tcalculationItem\s+'?([^'=\n]+?)'?\s*=",
+        re.MULTILINE,
+    )
+    items = [m.group(1).strip() for m in item_pattern.finditer(content)]
+
+    if not items:
+        return {}
+
+    # Find the dimension column — the one with `sourceColumn: Name`
+    # This is the column that holds the calculation item names at runtime
+    # Pattern: column definition followed by body containing `sourceColumn: Name`
+    col_pattern = re.compile(
+        r"^\tcolumn\s+'?([^'=\n]+?)'?\s*$"
+        r"(.*?)"
+        r"(?=^\t(?:measure|column|hierarchy|partition|annotation|///)\s|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    dimension_col = None
+    for m in col_pattern.finditer(content):
+        col_name = m.group(1).strip().strip("'")
+        body = m.group(2)
+        if re.search(r"sourceColumn:\s*Name\b", body):
+            dimension_col = col_name
+            break
+
+    if not dimension_col:
+        # Fallback: use the table name as the column name (PBI convention for calc groups)
+        dimension_col = table_name
+
+    return {(table_name, dimension_col): items}
+
+
+# ============================================================
 # Single TMDL file parser
 # ============================================================
 
-def _parse_single_tmdl(filepath: Path) -> tuple[dict, dict]:
-    """Parse a single TMDL file. Returns (measures_dict, columns_dict)."""
+def _parse_single_tmdl(filepath: Path) -> tuple[dict, dict, dict]:
+    """Parse a single TMDL file. Returns (measures_dict, columns_dict, calc_groups_dict)."""
     content = filepath.read_text(encoding="utf-8-sig")
 
     # Extract table name from first line
     table_match = re.match(r"^table\s+(.+?)$", content, re.MULTILINE)
     if not table_match:
-        return {}, {}
+        return {}, {}, {}
     table_name = table_match.group(1).strip().strip("'")
 
     measures = _parse_measures(content, table_name)
     columns = _parse_columns(content, table_name)
+    calc_groups = _parse_calculation_items(content, table_name)
 
-    return measures, columns
+    return measures, columns, calc_groups
 
 
 # ============================================================
@@ -343,9 +398,10 @@ def parse_semantic_model(model_root) -> SemanticModel:
         return model
 
     for tmdl_file in sorted(tables_dir.glob("**/*.tmdl")):
-        measures, columns = _parse_single_tmdl(tmdl_file)
+        measures, columns, calc_groups = _parse_single_tmdl(tmdl_file)
         model.measures.update(measures)
         model.columns.update(columns)
+        model.calculation_groups.update(calc_groups)
 
     model.build_indexes()
     return model
@@ -362,7 +418,7 @@ def parse_tmdl_files(tables_dir) -> dict:
         print(f"WARNING: Tables directory not found: {tables_dir}")
         return measures
     for tmdl_file in sorted(tables_dir.glob("**/*.tmdl")):
-        file_measures, _ = _parse_single_tmdl(tmdl_file)
+        file_measures, _, _ = _parse_single_tmdl(tmdl_file)
         measures.update(file_measures)
     return measures
 
