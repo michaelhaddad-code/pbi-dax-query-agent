@@ -152,26 +152,13 @@ This prompt must appear at the end of every Step 4 response, every time, without
 If the user has CSV data from an executed DAX query, generate a PBI-styled chart using `chart_generator.py`. This step is optional — the user can skip it and continue to the next visual.
 
 **Two modes:**
-- **Metadata-driven (preferred):** Use the Skill 1 metadata Excel to auto-detect visual type and field roles:
+- **Metadata-driven (preferred):**
 ```bash
-python skills/chart_generator.py \
-    --csv "output/<visual_data>.csv" \
-    --metadata "output/pbi_report_metadata.xlsx" \
-    --visual "<Visual Name>" \
-    --format pptx \
-    --output "output/charts/"
+python skills/chart_generator.py --csv "output/<data>.csv" --metadata "output/pbi_report_metadata.xlsx" --visual "<Visual Name>" --format pptx --output "output/charts/"
 ```
-- **Manual:** User specifies visual type and fields directly:
-```bash
-python skills/chart_generator.py \
-    --csv "output/<visual_data>.csv" \
-    --visual-type barChart \
-    --field "Category:grouping" --field "Revenue:measure" \
-    --format pptx \
-    --output "output/charts/"
-```
+- **Manual:** User specifies `--visual-type` and `--field "Col:role"` instead of `--metadata`/`--visual`.
 
-**Output:** A single-slide `.pptx` file with a native editable chart (bar, column, line, pie, etc.) or PNG fallback for complex types. Report the output path to the user.
+**Output:** A single-slide `.pptx` file with a native editable chart or PNG fallback for complex types. Report the output path to the user.
 
 ### Step 6: CONTINUE — Loop Back
 After chart generation (Step 5), always ask:
@@ -227,38 +214,7 @@ When any TMDL editing or cleanup feature is offered (e.g., renaming measures, re
 ---
 
 ## What This Project Does
-Reverse-engineers Power BI visuals into executable DAX queries. Given a PBIP report's JSON and TMDL files, the pipeline extracts every visual's fields, filters, and measures, then deterministically constructs DAX `EVALUATE` queries that reproduce each visual's underlying data.
-
-This is the **data retrieval layer** for Lara's AI-Powered Slide Generation project at XP3R. The generated DAX queries feed into an agent that queries Microsoft Fabric Semantic Models, retrieves tabular data, and produces PowerPoint slides with AI-generated insights.
-
-### Bigger Picture: How This Fits
-```
-  .pbix file ---> [Skill 0] pbix_extractor.py ---> PBIP folders (+ full TMDL via pbixray SQLite)
-                                                        |
-  PBIP files -----> [Skill 1] extract_metadata.py ------+--> 8-col metadata Excel --+--> [Skill 2] dax_query_builder.py --> DAX queries
-                                                        ^                           |
-                            [Shared] tmdl_parser.py (semantic model parsing)        +--> Bookmarks sheet (optional)
-                            [Shared] bookmark_parser.py (bookmark filter parsing)---+
-
-  DAX queries --> Execute against Fabric --> tabular CSV data --+--> [Skill 3] chart_generator.py --> .pptx or .png
-                                                                |
-  Metadata Excel (visual type + field roles) -------------------+
-
-  .pptx chart slides --> Lara's Agent --> AI insights --> PowerPoint slides
-  Bookmark DAX queries--^  (filtered per-bookmark view)
-```
-
-### Deterministic Extraction
-The pipeline uses fully automated, code-based DAX construction. No AI in the loop. Field metadata is extracted from the visual JSON, classified by role (grouping column, measure, filter, slicer), then assembled into a DAX `EVALUATE` query using the appropriate pattern (SUMMARIZECOLUMNS, VALUES, ROW, etc.).
-
-## Stack
-- Python 3.x
-- pandas, openpyxl (Excel I/O)
-- regex (TMDL file parsing, DAX formula analysis)
-- plotly, kaleido (chart rendering for Skill 3 PNG mode/fallback)
-- python-pptx (native PowerPoint chart generation for Skill 3 PPTX mode)
-- pbixray (optional — .pbix semantic model extraction via internal SQLite for Skill 0)
-- Power BI Desktop PBIP format (JSON + TMDL files) and .pbix format (ZIP)
+Reverse-engineers Power BI visuals into executable DAX queries. Given a PBIP report's JSON and TMDL files, the pipeline extracts every visual's fields, filters, and measures, then deterministically constructs DAX `EVALUATE` queries that reproduce each visual's underlying data. This is the **data retrieval layer** for Lara's AI-Powered Slide Generation project at XP3R.
 
 ## Project Structure
 ```
@@ -273,190 +229,25 @@ powerpointTask/
 │   ├── dax_query_builder.py        # Skill 2: DAX query generation (+Bookmark DAX Queries sheet)
 │   └── chart_generator.py          # Skill 3: Chart image generator (plotly + python-pptx)
 ├── data/                           # Input PBIP folders and .pbix files go here
-│   ├── <ReportName>.pbix           # .pbix files (extracted by Skill 0)
-│   ├── <ReportName>.Report/        # PBIP report definition (may include bookmarks/)
-│   └── <ReportName>.SemanticModel/ # PBIP semantic model
 └── output/                         # All generated outputs go here
 ```
 
-## Skill Details
+## Skill Quick Reference
+Read the source files for full details. Key CLI signatures:
 
-### Skill 0: pbix_extractor.py
-Converts a `.pbix` ZIP archive into the PBIP folder structure that `extract_metadata.py` consumes. Report structure (pages, visuals, filters, bookmarks) is extracted with pure Python. Semantic model extraction (tables, columns, measures, relationships, hierarchies, variations, partitions, RLS roles, annotations) uses pbixray's `PbixUnpacker` + `SQLiteHandler` for direct access to the internal metadata SQLite database.
+| Skill | File | Purpose | CLI |
+|---|---|---|---|
+| 0 | `pbix_extractor.py` | `.pbix` → PBIP folders (report structure + TMDL via pbixray SQLite) | `python skills/pbix_extractor.py "<pbix>" --output "data/"` |
+| 1 | `extract_metadata.py` | PBIP → 8-col metadata Excel + Bookmarks + Filter Expressions sheets | `python skills/extract_metadata.py --report-root "..." --model-root "..." --output "output/..."` |
+| 2 | `dax_query_builder.py` | Metadata Excel → DAX queries (Patterns 1/2/3/3M) + Bookmark DAX | `python skills/dax_query_builder.py "output/metadata.xlsx" "output/dax.xlsx"` |
+| 3 | `chart_generator.py` | CSV data → PPTX native chart slide or PNG | `python skills/chart_generator.py --csv "..." --metadata "..." --visual "..." --output "output/charts/"` |
+| Shared | `tmdl_parser.py` | TMDL parser → `SemanticModel` (measures, columns, relationships, calc groups) | `parse_semantic_model(model_root)` |
+| Shared | `bookmark_parser.py` | Bookmark JSON → DAX filter expressions + visual visibility | `parse_bookmarks(report_root, ...)` |
 
-- **Input:**
-  - Positional: `pbix_path` — path to the .pbix file
-  - `--output` — output directory (default: `data/`)
-  - `--model-root` — optional path to existing PBIP semantic model (skips pbixray)
-- **Output:** PBIP folder structure:
-  - `<ReportName>.Report/definition/` — report.json, pages/, visuals/, bookmarks/
-  - `<ReportName>.SemanticModel/definition/` — full TMDL files with correct data types (if pbixray available)
-    - `tables/*.tmdl` — measures, columns (with dataType, summarizeBy, sortByColumn), hierarchies, variations, partitions, annotations
-    - `relationships.tmdl` — relationship definitions (joinOnDateBehavior, crossFilteringBehavior)
-    - `relationships.json` — same data in JSON format for `tmdl_parser.py` compatibility
-    - `roles/*.tmdl` — RLS role definitions with table permissions (if present)
-    - `model.tmdl` — model stub with culture, ref table entries
-    - `database.tmdl` — compatibility level stub
-  - **No `.source` marker file** — `tmdl_parser.py` defaults to `source = "pbip"` (reliable types), which is correct for the SQLite-extracted data
-- **Returns (module API):** `PbixExtractResult` dataclass with `report_root`, `model_root`, `report_name`, page/visual/bookmark counts, `semantic_model_source` ("pbixray-sqlite" | "user-provided" | "none")
-- **Key logic:**
-  - Reads `Report/Layout` from ZIP (UTF-16LE encoded)
-  - Parses stringified JSON fields (`config`, `filters`, `query`) from each visual container
-  - Handles `singleVisual` and `singleVisualGroup` (grouped visuals)
-  - Extracts bookmarks from `config.bookmarks` or top-level `bookmarks` key
-  - SQLite extraction via `PbixUnpacker` → `get_data_slice("metadata.sqlitedb")` → `SQLiteHandler`
-  - Progressive SQL fallback tiers for columns/relationships (handles different PBIX versions)
-  - Column data types extracted from TOM `ExplicitDataType` codes (correct types, not all `string`)
-  - Safe value handling (`_safe_int`, `_safe_str`, `_safe_bool`) for NaN/null values
-- **Without pbixray:** Extracts full report structure (pages, visuals, filters, bookmarks) but measure formulas and column metadata are missing. DAX queries are still generated but without formula traceability.
-
-```bash
-# Basic — extracts report, tries pbixray for model
-python skills/pbix_extractor.py "path/to/report.pbix" --output "data/"
-
-# With explicit model fallback
-python skills/pbix_extractor.py "path/to/report.pbix" --output "data/" --model-root "path/to/SemanticModel/definition"
-```
-
-### Skill 1: extract_metadata.py
-Parses PBIP report files (JSON + TMDL) to extract every visual, field, filter, and measure used in a report. Recursively resolves nested measure dependencies to trace all underlying column references. Optionally parses bookmarks to extract filter values and visual visibility state.
-
-- **Input:**
-  - `--report-root` — Path to PBIP report definition root (contains `pages/`, `report.json`)
-  - `--model-root` — Path to semantic model definition root (contains `tables/` with `.tmdl` files)
-  - `--output` — Output Excel file path (default: `pbi_report_metadata.xlsx`)
-  - `--no-bookmarks` — Disable bookmark extraction (default: bookmarks are extracted if present)
-- **Output:** Excel with two sheets:
-  - **Report Metadata** — 8 columns: Page Name, Visual/Table Name in PBI, Visual Type, UI Field Name, Usage (Visual/Filter/Slicer), Measure Formula, Table in the Semantic Model, Column in the Semantic Model
-  - **Bookmarks** (if bookmarks/ folder exists) — 6 columns: Bookmark Name, Page Name, Visual Container ID, Visual Name, Visible (Y/N), Filter DAX
-- **Key logic:**
-  - `resolve_measure_dependencies()` — recursive DAX formula parsing with visited-set cycle prevention
-  - `extract_field_info()` — handles Column, Measure, Aggregation, and HierarchyLevel field types
-  - Extracts report-level, page-level, visual-level, and slicer persisted selection filters separately
-  - Slicer filter extraction: reads `visual.objects.general[].properties.filter.filter` (same From/Where/Condition format as bookmarks). These appear in the Filter Expressions sheet with `Filter Level = "Slicer"` and are applied to all visuals on the same page (except the slicer itself) during DAX query generation.
-  - Builds visual_id_to_name and page_id_to_name mappings for bookmark resolution
-  - `extract_metadata()` returns `(df, bookmarks_list)` tuple
-
-```bash
-python skills/extract_metadata.py \
-  --report-root "data/<ReportName>.Report/definition" \
-  --model-root "data/<ReportName>.SemanticModel/definition" \
-  --output "output/pbi_report_metadata.xlsx"
-```
-
-### Skill 2: dax_query_builder.py
-Reads the metadata extractor output (Skill 1's Excel) and generates a DAX query for each visual in the report. Classifies each field by role, then applies one of four DAX patterns. If bookmark data is present, generates an additional sheet with filter-aware queries.
-
-- **Input:** Positional arg — path to the metadata extractor Excel file
-- **Output:** Excel file with one or two sheets:
-  - **DAX Queries by Visual** — columns: Page Name, Visual Name, Visual Type, DAX Pattern, DAX Query, Filter Fields, Validated?
-  - **Bookmark DAX Queries** (if Bookmarks sheet present in input) — columns: Bookmark Name, Page Name, Visual Name, Visual Type, DAX Pattern, DAX Query, Filters Applied, Validated?
-- **DAX Patterns:**
-  - **Pattern 1 (Measures Only):** Cards, KPIs — `EVALUATE { [Measure] }` or `EVALUATE ROW(...)`
-  - **Pattern 2 (Columns Only):** Slicers, column-only visuals — `EVALUATE VALUES(...)` or `EVALUATE DISTINCT(SELECTCOLUMNS(...))`
-  - **Pattern 3 (Columns + Measures):** Most visuals — `EVALUATE SUMMARIZECOLUMNS(...)`
-  - **Pattern 3M (Matrix Pivot):** Matrix visuals with column-axis fields. Batch mode emits a summary query (row groupings + measures, no column-axis field). Interactive mode uses a preflight `VALUES()` query to get distinct column values, then generates a single pivoted `SUMMARIZECOLUMNS` with `CALCULATE` per (value × measure) pair.
-  - **Unknown:** Fallback comment when pattern can't be determined
-- **Bookmark DAX wrapping:**
-  - Pattern 1 Single Measure → `EVALUATE { CALCULATE([Measure], filter1, ...) }`
-  - All others → `EVALUATE CALCULATETABLE(<inner>, filter1, ...)`
-  - Only visible visuals (Visible = Y) get bookmark queries
-- **Key logic:**
-  - `classify_field()` — maps Usage labels to roles: grouping, measure, filter, slicer, page_filter, matrix_column
-  - `build_dax_query()` — selects the DAX pattern based on which field roles are present (accepts `matrix_columns` param for Pattern 3M)
-  - `build_matrix_values_query()` — generates preflight `EVALUATE VALUES(...)` query for matrix column-axis fields
-  - `build_matrix_pivot_query()` — generates pivoted SUMMARIZECOLUMNS with CALCULATE per (column_value × measure) pair. When `flat_measures` is None and model has relationships, auto-detects unreachable measures via `auto_detect_flat_measures()` and excludes them from pivoting
-  - `build_filter_graph(relationships)` — builds directed filter-propagation graph from `TmdlRelationship` objects (dimension→fact edges; bidirectional for `bothDirections`)
-  - `can_filter_reach(graph, source_table, target_table)` — BFS reachability check through the filter graph
-  - `auto_detect_flat_measures(measures, matrix_columns, model)` — uses filter lineage to find measures whose home table is unreachable from the column-axis table; these are included as flat (unpivoted) columns. **Skipped when the column-axis is a calculation group** (`calc_group_auto=True`), because calculation groups affect all measures via `SELECTEDMEASURE()` regardless of relationship paths
-  - `_is_measure_filter()` — detects measure-based filter expressions (bare `[Measure]` refs, BLANK checks) vs column-based (`'Table'[Column]`)
-  - `wrap_dax_with_filters()` — wraps base DAX with CALCULATETABLE/CALCULATE for column filters; measure-based filters (e.g. `NOT ([Measure] = BLANK())`) are wrapped with outer FILTER() instead (they're invalid inside CALCULATETABLE)
-  - `build_bookmark_queries()` — orchestrates bookmark DAX generation for all visible visuals
-  - Page-level filters are appended to each visual's filter list
-  - Unextracted filter values appear as comments in the main DAX Queries sheet
-  - `parse_filter_column_refs()` — extracts `(table, column)` pairs from DAX filter expressions
-  - `check_filter_redundancy()` — detects when external filter expressions target columns already referenced in measure formulas, preventing CALCULATETABLE conflicts with internal measure logic
-  - `--model-root` — optional CLI arg to load semantic model for formula lookup when metadata Excel lacks formulas
-
-```bash
-python skills/dax_query_builder.py "output/pbi_report_metadata.xlsx" "output/dax_queries.xlsx"
-```
-
-### Shared Module: tmdl_parser.py
-Reusable TMDL semantic model parser. Extracts both measures AND columns from TMDL files into a `SemanticModel` dataclass with case-insensitive lookup indexes. Used by Skills 1 and 2.
-
-- **Key functions:**
-  - `parse_semantic_model(model_root)` -- returns `SemanticModel` with measures, columns, indexes, and relationships
-  - `_parse_relationships_tmdl(content)` -- parses `relationships.tmdl` into `TmdlRelationship` objects (handles quoted table/column names, `crossFilteringBehavior`, `isActive`, `fromCardinality`/`toCardinality`)
-  - `parse_tmdl_files(tables_dir)` -- legacy wrapper for Skill 1 (returns measures dict only)
-  - `match_field_to_model(field_name, model)` -- matches a bare field name to the model
-    - Priority: exact measure -> exact column -> fuzzy match (normalized) -> None
-- **Relationship loading** (in `parse_semantic_model`):
-  1. First tries `relationships.json` (written by pbix_extractor for `.pbix` files)
-  2. Falls back to `relationships.tmdl` (native PBIP format) if no relationships loaded
-  - Both formats produce the same `TmdlRelationship` objects
-- **Data classes:**
-  - `SemanticModel` -- measures dict, columns dict, case-insensitive name indexes, relationships list, calculation_groups dict `{(table, column): [item_names]}`
-  - `TmdlColumn` -- table, name, data_type, is_hidden
-  - `TmdlRelationship` -- from_table, from_column, to_table, to_column, is_active, cardinality, cross_filtering
-
-### Shared Module: bookmark_parser.py
-Parses bookmark JSON files from PBIP report definitions. Converts bookmark filter conditions into DAX filter expressions and tracks visual visibility per bookmark.
-
-- **Key functions:**
-  - `parse_bookmarks(report_root, visual_id_to_name, page_id_to_name, page_id_to_visual_ids)` -- main entry point, returns list of `BookmarkInfo`
-  - `condition_to_dax(condition, from_entities)` -- converts a JSON filter `Where.Condition` to a DAX expression
-  - `parse_literal(value_str)` -- converts PBI literal values to DAX format (strings, dates, relative offsets)
-- **Supported filter condition types:**
-  - `Comparison` (=, >, >=, <, <=, <>) -- e.g., `'Store'[Store Type] = "New Store"`
-  - `In` -- e.g., `'Opportunities'[Status] IN {"Open", "Won"}`
-  - `Not > In` -- e.g., `NOT 'Opportunities'[Status] IN {"Lost"}`
-  - `And` (recursive) -- e.g., `'Calendar'[Date] >= DATE(2020, 6, 1) && 'Calendar'[Date] < DATE(2021, 6, 1)`
-- **Literal value formats:**
-  - String: `'New Store'` → `"New Store"` (PBI single quotes → DAX double quotes)
-  - DateTime: `datetime'2020-06-01T00:00:00'` → `DATE(2020, 6, 1)`
-  - Relative: `-6L` → `-6 /* relative offset */` (cannot resolve statically)
-- **Data classes:**
-  - `BookmarkInfo` -- name, bookmark_id, page_name, page_id, filters (DAX strings), visuals (BookmarkVisual list)
-  - `BookmarkVisual` -- container_id, visual_name, visible (bool)
-- **Entity resolution:** The `From` array in filter JSON maps aliases to entity names (e.g., `{"Name": "s", "Entity": "Store"}` means `SourceRef.Source: "s"` → table `Store`)
-
-### Skill 3: chart_generator.py
-Generates PBI-style chart visuals from DAX query tabular data. Supports two output formats: **PPTX** (default, single-slide PowerPoint with native editable chart or PNG fallback) and **PNG** (legacy plotly image).
-
-- **Input:**
-  - `--csv` data file + `--metadata` Excel from Skill 1 + `--visual` name to match
-  - `--format` — Output format: `pptx` (default) or `png` (legacy)
-  - `--output` — Output directory for chart files (default: `output/charts/`)
-  - `--width` / `--height` / `--scale` — Image dimensions for PNG mode (default: 1100x500, scale=2 for 144 DPI)
-- **Output:**
-  - **PPTX mode (default):** Single-slide `.pptx` file per visual with native editable chart or embedded plotly PNG.
-  - **PNG mode (legacy):** plotly-rendered static PNG image.
-- **Native chart types (editable in PowerPoint):** barChart, clusteredBarChart, stackedBarChart, hundredPercentStackedBarChart, columnChart, clusteredColumnChart, stackedColumnChart, hundredPercentStackedColumnChart, lineChart, areaChart, stackedAreaChart, pieChart, donutChart, scatterChart
-- **Native extended types (editable in PowerPoint):** tableEx, pivotTable (native tables), card, cardVisual, multiRowCard (styled text boxes), kpi (value + delta text), ribbonChart (as AREA_STACKED), lineClusteredColumnComboChart, lineStackedColumnComboChart (column + line with secondary axis via XML)
-- **PNG fallback types:** waterfallChart, funnelChart, treemap, gauge
-- **Skipped:** slicers, maps, AI visuals (not meaningful as static charts)
-- **Dependencies:** plotly, kaleido, pandas, openpyxl, python-pptx
-
-```bash
-python skills/chart_generator.py \
-  --csv "output/revenue_data.csv" \
-  --metadata "output/pbi_report_metadata.xlsx" \
-  --visual "Pipeline by Stage" \
-  --output "output/charts/"
-```
-
-## Test Data
-- **Revenue Opportunities** — 11 visuals, no bookmarks. Reference report with manual validation files.
-  - Report: `data/Revenue Opportunities.Report/definition/`
-  - Model: `data/Revenue Opportunities.SemanticModel/definition/`
-- **Store Sales** — 17 visuals, 2 bookmarks (`'Store'[Store Type] = "New Store"`, visual show/hide toggle).
-  - Report: `data/Store Sales.Report/definition/`
-  - Model: `data/Store Sales.SemanticModel/definition/`
-- **AI Sample** — 10 visuals, 17 bookmarks (IN, NOT IN, date ranges, relative dates).
-  - Report: `data/Artificial Intelligence Sample (2).Report/definition/`
-  - Model: `data/Artificial Intelligence Sample (2).SemanticModel/definition/`
-- **Manual references:** `data/manual/pbi_report_metadata_revopp.xlsx` (30 rows, 11 visuals) and `data/manual/dax_queries_by_visual.xlsx` (11 queries, all validated)
+**Key API notes:**
+- `read_extractor_output()` returns 4 values: `visuals, page_filters, bookmarks, filter_expr_data`
+- `get_single_visual_query()` accepts `filter_expr_data` and `model` params — always pass both
+- `SemanticModel` has: measures dict, columns dict, relationships list, `calculation_groups` dict `{(table, column): [item_names]}`
 
 ## Critical Rules — NEVER BREAK THESE
 1. **NEVER modify input PBIP files** — the `.Report/` and `.SemanticModel/` folders are read-only inputs.
@@ -473,24 +264,6 @@ python skills/chart_generator.py \
 12. **ALWAYS check the Filter Expressions sheet for preset filter values** — The Report Metadata sheet only lists filter *field names*. Preset values (e.g., `'Date'[Year] = 2014`) are in the Filter Expressions sheet. Before presenting a filtered DAX query, ALWAYS cross-reference Filter Expressions for report-level, page-level, and visual-level preset values. Use `collect_filters_for_visual()` or pass `filter_expr_data` to `get_single_visual_query()`. Never tell the user "no preset values" without checking this sheet first.
 13. **ALWAYS generate DAX queries by calling `get_single_visual_query()` programmatically — never hand-write measure references.** The UI field name (e.g., "Total Sales") is the display label set by the report author and does NOT match the semantic model measure name. The actual measure name is `col_sm.split(',')[0]` (e.g., "Total Category Volume"). `get_single_visual_query()` resolves this automatically. Only fall back to hand-written DAX for edge cases the code cannot handle (e.g., custom pivot logic, Pattern 3M with user-supplied column values), and clearly note when doing so. Always call `read_extractor_output()` which returns 4 values: `visuals, page_filters, bookmarks, filter_expr_data` — pass `filter_expr_data` to `get_single_visual_query()`.
 14. **ALWAYS pass `model` to `get_single_visual_query()`.** Load it with `parse_semantic_model(model_root)` and pass as `model=model`. Without `model`, calculation group auto-detection, flat measure detection, and formula lookup all fail silently — the function won't error, it will just produce degraded output (e.g., asking users for a preflight query when calc group items are already in the TMDL).
-
-## Validation Status
-The pipeline has been manually cross-checked against four reports:
-- **Revenue Opportunities** — 11/11 visuals, 30/30 metadata rows. Validated against manual reference files in `data/manual/`.
-- **Store Sales** — 17/17 visuals across 5 pages. 2 bookmarks, 8 bookmark DAX queries. Validated by running DAX queries against the Semantic Model.
-- **AI Sample** — 10 visuals across 3 pages. 17 bookmarks. Bookmarks referencing deleted pages produce filters but 0 matched visuals (expected).
-- **Regional Sales Sample** — 55 data visuals across 11 pages, 2 bookmarks. Extracted from `.pbix` via SQLite-based extractor. Correct column data types (int64, double, dateTime, boolean, string). Zero SUMX/CONVERT workarounds in generated DAX.
-
-## Known Limitations
-- **`.pbix` semantic model extraction requires `pbixray`** — without it, report structure (pages, visuals, filters, bookmarks) is fully extracted but measure formulas and column metadata are missing. Install with `pip install pbixray` (requires a C compiler).
-- **SQLite column query fallback** — some older PBIX files may lack `SortByColumn` or `IsNameInferred` columns in the SQLite metadata; the extractor uses progressive fallback tiers (Tier 1→4) to handle this gracefully.
-- **No access to actual data values** — metadata contains field names and tables only, not row-level data. Custom filter values cannot be verified for exact spelling/casing.
-- **Bookmark filters only** — filter values are extracted from bookmarks, not from the visual's own persisted filter state. If a report has no bookmarks, no filter values are available.
-- **Relative date offsets** (e.g., `-6L` months back) cannot be resolved statically and appear as comments in DAX.
-- Complex visuals with calculated columns, nested measures, or unusual aggregations may produce queries that don't perfectly match Power BI's internal rendering.
-- Implicit measures (auto-generated Sum/Count from drag-and-drop) are not tracked in TMDL files.
-- HierarchyLevel fields (date hierarchies) use fallback resolution via PropertyVariationSource.
-- **Chart generator:** Charts are PBI-styled approximations, not pixel-perfect replicas. Combo charts, waterfall, funnel, treemap, gauge, card, KPI, and tables use PNG fallback on slide.
 
 ## Coding Conventions
 - Use clear variable names (no single letters except loop counters)
