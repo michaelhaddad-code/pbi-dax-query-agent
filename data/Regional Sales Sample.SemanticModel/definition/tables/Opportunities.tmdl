@@ -1,37 +1,32 @@
 table Opportunities
 	lineageTag: 574e7ea3-1c8d-44ef-8571-714b66f865c7
 
-	measure 'Revenue Won' = ```
-			
-			 CALCULATE(
-			     SUMX(Opportunities, Opportunities[Value]),
-			     FILTER(Opportunities, Opportunities[Status] = "Won")
-			 )
-			```
+	measure 'Revenue Won' =
+		```
+		CALCULATE(
+		     SUMX(Opportunities, Opportunities[Value]),
+		     FILTER(Opportunities, Opportunities[Status] = "Won")
+		 )
+		```
 		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: 4175e2ae-8428-461a-854b-9a68cf5b5b8c
 
-		changedProperty = FormatString
-
-	measure 'Revenue In Pipeline' = ```
-			
-			VAR Revenue =
-			    CALCULATE (
-			        SUMX ( Opportunities, Opportunities[Value] ),
-			        FILTER (
-			            Opportunities,
-			            Opportunities[Status] = "Open"
-			            && VALUE(LEFT(Opportunities[Sales Stage],1)) >=2
-			        )
-			    )
-			RETURN
-			    Revenue + ( Revenue * ( 'Opportunity Forecast Adjustment'[Forecast Adjustment Value] / 100 ) )
-			
-			```
+	measure 'Revenue In Pipeline' =
+		```
+		VAR Revenue =
+		    CALCULATE (
+		        SUMX ( Opportunities, Opportunities[Value] ),
+		        FILTER (
+		            Opportunities,
+		            Opportunities[Status] = "Open"
+		            && VALUE(LEFT(Opportunities[Sales Stage],1)) >=2
+		        )
+		    )
+		RETURN
+		    Revenue + ( Revenue * ( 'Opportunity Forecast Adjustment'[Forecast Adjustment Value] / 100 ) )
+		```
 		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: 1322f812-7712-498e-9f4d-ba6b80052388
-
-		changedProperty = FormatString
 
 	measure 'Forecast %' = (([Revenue Won]+[Revenue In Pipeline]))/ [Rev Goal]
 		formatString: #,0%;-#,0%;#,0%
@@ -41,50 +36,45 @@ table Opportunities
 		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
 		lineageTag: f3eb5c0a-9667-445a-b762-e4e9f911c533
 
-		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
-
-	measure 'Opportunity Count In Pipeline' = ```
-			
-			    CALCULATE (
-			        COUNT( Opportunities[Value] ),
-			        FILTER (
-			            Opportunities,
-			            Opportunities[Status] = "Open"
-			              --  && Opportunities[PipelineStep] IN { "3-Pipeline", "4-Mandate", "5-Close" }
-			        )
-			    )
-			
-			```
+	measure 'Opportunity Count In Pipeline' =
+		```
+		CALCULATE (
+		        COUNT( Opportunities[Value] ),
+		        FILTER (
+		            Opportunities,
+		            Opportunities[Status] = "Open"
+		              --  && Opportunities[PipelineStep] IN { "3-Pipeline", "4-Mandate", "5-Close" }
+		        )
+		    )
+		```
 		formatString: #,0
 		lineageTag: b4effa85-1aa3-4f33-a3ef-07ec57b59c0f
 
-	measure 'Opportunity Count' =
-			
-			COUNTAX(Opportunities,TRUE())
+	measure 'Opportunity Count' = COUNTAX(Opportunities,TRUE())
 		formatString: #,0
 		lineageTag: f9cdd5b7-71b0-42ca-b100-d957cbdaa375
 
-	measure 'Count of Won' = ```
-			
-			COUNTAX(
-			    FILTER(
-			        KEEPFILTERS(Opportunities),Opportunities[Status] = "Won"
-			        ),
-			    Opportunities[OpportunitySeq]
-			    ) 
-			```
+	measure 'Count of Won' =
+		```
+		COUNTAX(
+		    FILTER(
+		        KEEPFILTERS(Opportunities),Opportunities[Status] = "Won"
+		        ),
+		    Opportunities[OpportunitySeq]
+		    )
+		```
 		formatString: #,0
 		lineageTag: 61908284-58b6-4ce1-b980-2cd65b89fafd
 
-	measure 'Count of Lost' = ```
-			
-			COUNTAX(
-			    FILTER(
-			        KEEPFILTERS(Opportunities),Opportunities[Status] = "Lost"
-			        ),
-			    Opportunities[OpportunitySeq]
-			    ) 
-			```
+	measure 'Count of Lost' =
+		```
+		COUNTAX(
+		    FILTER(
+		        KEEPFILTERS(Opportunities),Opportunities[Status] = "Lost"
+		        ),
+		    Opportunities[OpportunitySeq]
+		    )
+		```
 		formatString: #,0
 		lineageTag: 0995fcc4-bb40-4d35-aac9-9ecf60f69bbe
 
@@ -93,33 +83,28 @@ table Opportunities
 		lineageTag: 938be727-4972-4ef9-a507-da6a1d898703
 
 	measure 'Revenue Open' =
-			
-			VAR Revenue =
-			    CALCULATE (
-			        SUMX ( Opportunities, Opportunities[Value] ),
-			        FILTER (
-			            Opportunities,
-			            Opportunities[Status] = "Open"
-			        )
-			    )
-			RETURN
-			    Revenue + ( Revenue * ( 'Opportunity Forecast Adjustment'[Forecast Adjustment Value] / 100 ) )
+		```
+		VAR Revenue =
+		    CALCULATE (
+		        SUMX ( Opportunities, Opportunities[Value] ),
+		        FILTER (
+		            Opportunities,
+		            Opportunities[Status] = "Open"
+		        )
+		    )
+		RETURN
+		    Revenue + ( Revenue * ( 'Opportunity Forecast Adjustment'[Forecast Adjustment Value] / 100 ) )
+		```
 		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: d8ffa47c-94b4-4585-9170-43b31ec2dd1d
-
-		changedProperty = FormatString
 
 	measure 'Revenue Won Average Deal Size' = AVERAGEX(Opportunities,[Revenue Won])
 		formatString: \$#,0;(\$#,0);\$#,0
 		lineageTag: 959e44c7-e496-4ebb-8687-668c3c16f605
 
-		changedProperty = FormatString
-
 	measure 'Forecast by Win/Loss Ratio' = [Revenue Open] * [Close %]
 		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: 25b97fa8-199c-498f-9c14-f5e7d8cbb022
-
-		changedProperty = FormatString
 
 	column 'Purchase Process'
 		dataType: string
@@ -131,7 +116,7 @@ table Opportunities
 
 	column 'Decision Maker Identified'
 		dataType: boolean
-		formatString: """TRUE"";""TRUE"";""FALSE"""
+		formatString: "TRUE";"TRUE";"FALSE"
 		lineageTag: 70e6bcc8-4f3b-44c9-a8fd-c6ab1dc077e3
 		summarizeBy: none
 		sourceColumn: Decision Maker Identified
@@ -162,30 +147,27 @@ table Opportunities
 		summarizeBy: sum
 		sourceColumn: Value
 
-		changedProperty = IsHidden
-
 		annotation SummarizationSetBy = Automatic
 
 		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
 
 	column 'Weeks Open' =
-			
-			ABS (
-			    DATEDIFF (
-			        Opportunities[Opportunity Created On],
-			        IF (
-			            ISBLANK ( Opportunities[CloseDate] ) = TRUE (),
-			            TODAY (),
-			            Opportunities[CloseDate]
-			        ),
-			        WEEK
-			    )
-			)
+		```
+		ABS (
+		    DATEDIFF (
+		        Opportunities[Opportunity Created On],
+		        IF (
+		            ISBLANK ( Opportunities[CloseDate] ) = TRUE (),
+		            TODAY (),
+		            Opportunities[CloseDate]
+		        ),
+		        WEEK
+		    )
+		)
+		```
 		formatString: #,0
 		lineageTag: 306e46c3-251b-4fb0-852e-2a4a1fe836e8
 		summarizeBy: average
-
-		changedProperty = FormatString
 
 		annotation SummarizationSetBy = User
 
@@ -241,10 +223,6 @@ table Opportunities
 		summarizeBy: average
 		sourceColumn: Probability (raw)
 
-		changedProperty = FormatString
-
-		changedProperty = IsHidden
-
 		annotation SummarizationSetBy = User
 
 	column AccountSeq
@@ -254,8 +232,6 @@ table Opportunities
 		lineageTag: 964185da-1291-4026-a472-33f798d3a5d6
 		summarizeBy: none
 		sourceColumn: AccountSeq
-
-		changedProperty = IsHidden
 
 		annotation SummarizationSetBy = Automatic
 
@@ -267,8 +243,6 @@ table Opportunities
 		summarizeBy: sum
 		sourceColumn: OpportunitySeq
 
-		changedProperty = IsHidden
-
 		annotation SummarizationSetBy = Automatic
 
 	column ProductSeq
@@ -278,8 +252,6 @@ table Opportunities
 		lineageTag: 109d74f6-1df8-4cdb-9749-9cb58c5c8fc2
 		summarizeBy: none
 		sourceColumn: ProductSeq
-
-		changedProperty = IsHidden
 
 		annotation SummarizationSetBy = Automatic
 
@@ -291,8 +263,6 @@ table Opportunities
 		summarizeBy: none
 		sourceColumn: SystemUserSeq
 
-		changedProperty = IsHidden
-
 		annotation SummarizationSetBy = Automatic
 
 	column CampaignSeq
@@ -302,8 +272,6 @@ table Opportunities
 		lineageTag: b5ed8f8b-36c2-44db-b64e-e3ac67bb36b2
 		summarizeBy: none
 		sourceColumn: CampaignSeq
-
-		changedProperty = IsHidden
 
 		annotation SummarizationSetBy = Automatic
 
@@ -322,8 +290,6 @@ table Opportunities
 		summarizeBy: sum
 		sourceColumn: DateDiff-Days
 
-		changedProperty = IsHidden
-
 		annotation SummarizationSetBy = Automatic
 
 	column 'Opportunity Created On'
@@ -332,8 +298,6 @@ table Opportunities
 		lineageTag: 39addb4e-e78a-458d-8185-3af92a86f7d2
 		summarizeBy: none
 		sourceColumn: Opportunity Created On
-
-		changedProperty = FormatString
 
 		annotation SummarizationSetBy = Automatic
 
@@ -346,8 +310,6 @@ table Opportunities
 		summarizeBy: none
 		sourceColumn: CloseDate
 
-		changedProperty = FormatString
-
 		annotation SummarizationSetBy = Automatic
 
 		annotation UnderlyingDateTimeDataType = Date
@@ -355,37 +317,16 @@ table Opportunities
 		annotation PBI_FormatHint = {"isDateTimeCustom":true}
 
 	column 'Days Remaining In Pipeline (bins)' =
-			IF(
-			  ISBLANK('Opportunities'[Days Remaining In Pipeline]),
-			  BLANK(),
-			  INT('Opportunities'[Days Remaining In Pipeline] / 5) * 5
-			)
+		```
+		IF(
+		  ISBLANK('Opportunities'[Days Remaining In Pipeline]),
+		  BLANK(),
+		  INT('Opportunities'[Days Remaining In Pipeline] / 5) * 5
+		)
+		```
 		formatString: 0
 		lineageTag: 258d9f98-7e9a-4bb8-8238-fe8de818b99a
 		summarizeBy: none
-
-		extendedProperty GroupingMetadata =
-				{
-				  "version": 0,
-				  "groupedColumns": [
-				    {
-				      "Column": {
-				        "Expression": {
-				          "SourceRef": {
-				            "Entity": "Opportunities"
-				          }
-				        },
-				        "Property": "Days Remaining In Pipeline"
-				      }
-				    }
-				  ],
-				  "binningMetadata": {
-				    "binSize": {
-				      "value": 5.0,
-				      "unit": 0
-				    }
-				  }
-				}
 
 		annotation GroupingDesignState = {"Version":0,"Sources":[{"Name":"o","Entity":"Opportunities"}],"GroupedColumns":[{"Column":{"Expression":{"SourceRef":{"Source":"o"}},"Property":"Days Remaining In Pipeline"}}],"BinItem":{"Expression":{"Floor":{"Expression":{"Column":{"Expression":{"SourceRef":{"Source":"o"}},"Property":"Days Remaining In Pipeline"}},"Size":5.0}}}}
 
@@ -394,19 +335,19 @@ table Opportunities
 	partition Opportunities-2905f1f8-aef9-42b6-b178-4b43efaa2633 = m
 		mode: import
 		source =
-				let
-				    Source = Excel.Workbook(Web.Contents("https://microsoft-my.sharepoint.com/personal/misewell_microsoft_com/Documents/Documents/GitHub/ContosoBI/Contoso%20-%20Sales%20-%20Current%20Release/Contoso%20-%20Dynamics%20365%20Sales%20Source%20Data.xlsx"), null, true),
-				    OpportunityTbl_Table = Source{[Item="OpportunityTbl",Kind="Table"]}[Data],
-				    #"Removed Other Columns" = Table.SelectColumns(OpportunityTbl_Table,{"OpportunitySeq", "DateDiff-Minutes", "DaysToClose", "SystemUserSeq", "AccountSeq", "ProductSeq", "CampaignSeq", "Purchase Process", "Decision Maker Identified", "Discount", "Value", "PipelineStep", "Probability (raw)", "Probability", "Rating", "Status"}),
-				    #"Integer-Divided Column" = Table.TransformColumns(#"Removed Other Columns", {{"DateDiff-Minutes", each Number.IntegerDivide(_, 1440), Int64.Type}}),
-				    #"Changed Type" = Table.TransformColumnTypes(#"Integer-Divided Column",{{"DaysToClose", Int64.Type}}),
-				    #"Renamed Columns1" = Table.RenameColumns(#"Changed Type",{{"DateDiff-Minutes", "DateDiff-Days"},{"PipelineStep", "Sales Stage"}}),
-				    #"Added Custom" = Table.AddColumn(#"Renamed Columns1", "CreatedonDateUTC", each Date.AddDays(DateTimeZone.UtcNow(),[#"DateDiff-Days"])),
-				    #"Added Custom2" = Table.AddColumn(#"Added Custom", "CloseDateUTC", each Date.AddDays([CreatedonDateUTC],[#"DaysToClose"])),
-				    #"Renamed Columns" = Table.RenameColumns(#"Added Custom2",{{"CreatedonDateUTC", "Opportunity Created On"}, {"CloseDateUTC", "CloseDate"}}),
-				    #"Changed Type1" = Table.TransformColumnTypes(#"Renamed Columns",{{"CloseDate", type date}, {"Opportunity Created On", type date}, {"OpportunitySeq", Int64.Type}, {"DateDiff-Days", Int64.Type}, {"DaysToClose", Int64.Type}, {"SystemUserSeq", Int64.Type}, {"AccountSeq", Int64.Type}, {"ProductSeq", Int64.Type}, {"CampaignSeq", Int64.Type}, {"Purchase Process", type text}, {"Decision Maker Identified", type logical}, {"Discount", type number}, {"Value", Int64.Type}, {"Sales Stage", type text}, {"Probability (raw)", type number}, {"Probability", type number}, {"Rating", type text}, {"Status", type text}})
-				in
-				    #"Changed Type1"
+			let
+			    Source = Excel.Workbook(Web.Contents("https://microsoft-my.sharepoint.com/personal/misewell_microsoft_com/Documents/Documents/GitHub/ContosoBI/Contoso%20-%20Sales%20-%20Current%20Release/Contoso%20-%20Dynamics%20365%20Sales%20Source%20Data.xlsx"), null, true),
+			    OpportunityTbl_Table = Source{[Item="OpportunityTbl",Kind="Table"]}[Data],
+			    #"Removed Other Columns" = Table.SelectColumns(OpportunityTbl_Table,{"OpportunitySeq", "DateDiff-Minutes", "DaysToClose", "SystemUserSeq", "AccountSeq", "ProductSeq", "CampaignSeq", "Purchase Process", "Decision Maker Identified", "Discount", "Value", "PipelineStep", "Probability (raw)", "Probability", "Rating", "Status"}),
+			    #"Integer-Divided Column" = Table.TransformColumns(#"Removed Other Columns", {{"DateDiff-Minutes", each Number.IntegerDivide(_, 1440), Int64.Type}}),
+			    #"Changed Type" = Table.TransformColumnTypes(#"Integer-Divided Column",{{"DaysToClose", Int64.Type}}),
+			    #"Renamed Columns1" = Table.RenameColumns(#"Changed Type",{{"DateDiff-Minutes", "DateDiff-Days"},{"PipelineStep", "Sales Stage"}}),
+			    #"Added Custom" = Table.AddColumn(#"Renamed Columns1", "CreatedonDateUTC", each Date.AddDays(DateTimeZone.UtcNow(),[#"DateDiff-Days"])),
+			    #"Added Custom2" = Table.AddColumn(#"Added Custom", "CloseDateUTC", each Date.AddDays([CreatedonDateUTC],[#"DaysToClose"])),
+			    #"Renamed Columns" = Table.RenameColumns(#"Added Custom2",{{"CreatedonDateUTC", "Opportunity Created On"}, {"CloseDateUTC", "CloseDate"}}),
+			    #"Changed Type1" = Table.TransformColumnTypes(#"Renamed Columns",{{"CloseDate", type date}, {"Opportunity Created On", type date}, {"OpportunitySeq", Int64.Type}, {"DateDiff-Days", Int64.Type}, {"DaysToClose", Int64.Type}, {"SystemUserSeq", Int64.Type}, {"AccountSeq", Int64.Type}, {"ProductSeq", Int64.Type}, {"CampaignSeq", Int64.Type}, {"Purchase Process", type text}, {"Decision Maker Identified", type logical}, {"Discount", type number}, {"Value", Int64.Type}, {"Sales Stage", type text}, {"Probability (raw)", type number}, {"Probability", type number}, {"Rating", type text}, {"Status", type text}})
+			in
+			    #"Changed Type1"
 
 	annotation PBI_QueryRelationships = {"columnCount":22,"keyColumnNames":[],"queryRelationships":[],"columnIdentities":["Section1/Opportunities/Changed Type.{OpportunitySeq,0}","Section1/Opportunities/Changed Type.{CreatedonDate,1}","Section1/Opportunities/Changed Type.{DaysToClose,2}","Section1/Opportunities/Changed Type.{CloseDate,3}","Section1/Opportunities/Changed Type.{SystemUserSeq,4}","Section1/Opportunities/Changed Type.{Opportunity Owner Name,5}","Section1/Opportunities/Changed Type.{AccountSeq,6}","Section1/Opportunities/Changed Type.{ProductSeq,7}","Section1/Opportunities/Changed Type.{ProductName,8}","Section1/Opportunities/OpportunityTbl_Table.{CampaignSeq,10}","Section1/Opportunities/OpportunityTbl_Table.{Campaign Name,11}","Section1/Opportunities/Changed Type.{Budget,11}","Section1/Opportunities/Changed Type.{Topic,12}","Section1/Opportunities/Changed Type.{Purchase Process,13}","Section1/Opportunities/Changed Type.{Decision Maker Identified,14}","Section1/Opportunities/Changed Type.{Discount,15}","Section1/Opportunities/Changed Type.{Value,16}","Section1/Opportunities/Changed Type.{PipelineStep,17}","Section1/Opportunities/Changed Type.{Probability (raw),18}","Section1/Opportunities/Changed Type.{Probability,19}","Section1/Opportunities/Changed Type.{Rating,20}","Section1/Opportunities/Changed Type.{Status,21}"],"ColumnCount":22,"KeyColumnNames":[],"ColumnIdentities":["Section1/Opportunities/Changed Type.{OpportunitySeq,0}","Section1/Opportunities/Changed Type.{CreatedonDate,1}","Section1/Opportunities/Changed Type.{DaysToClose,2}","Section1/Opportunities/Changed Type.{CloseDate,3}","Section1/Opportunities/Changed Type.{SystemUserSeq,4}","Section1/Opportunities/Changed Type.{Opportunity Owner Name,5}","Section1/Opportunities/Changed Type.{AccountSeq,6}","Section1/Opportunities/Changed Type.{ProductSeq,7}","Section1/Opportunities/Changed Type.{ProductName,8}","Section1/Opportunities/OpportunityTbl_Table.{CampaignSeq,10}","Section1/Opportunities/OpportunityTbl_Table.{Campaign Name,11}","Section1/Opportunities/Changed Type.{Budget,11}","Section1/Opportunities/Changed Type.{Topic,12}","Section1/Opportunities/Changed Type.{Purchase Process,13}","Section1/Opportunities/Changed Type.{Decision Maker Identified,14}","Section1/Opportunities/Changed Type.{Discount,15}","Section1/Opportunities/Changed Type.{Value,16}","Section1/Opportunities/Changed Type.{PipelineStep,17}","Section1/Opportunities/Changed Type.{Probability (raw),18}","Section1/Opportunities/Changed Type.{Probability,19}","Section1/Opportunities/Changed Type.{Rating,20}","Section1/Opportunities/Changed Type.{Status,21}"],"RelationshipInfo":[]}
 

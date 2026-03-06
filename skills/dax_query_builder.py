@@ -217,6 +217,28 @@ def _measure_expression(m, model=None):
 # CORE LOGIC: DAX Query Generation
 # =============================================================================
 
+def _remap_sort_order(sort_order, measures):
+    """Replace raw column refs in sort_order with their SUMMARIZECOLUMNS alias.
+
+    Example: sort_order = "'Sales'[Amount] DESC"
+    If a measure has table_sm='Sales', col_sm='Amount', ui_name='Net Sales'
+    → returns "[Net Sales] DESC"
+    """
+    if not sort_order or not measures:
+        return sort_order
+    result = sort_order
+    for m in measures:
+        table = m.get("table_sm", "")
+        col = m.get("col_sm", "").split(",")[0].strip()
+        if not table or not col:
+            continue
+        # Match 'Table'[Column] pattern in the sort_order string
+        raw_ref = f"'{table}'[{col}]"
+        if raw_ref in result:
+            result = result.replace(raw_ref, f"[{m['ui_name']}]")
+    return result
+
+
 def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
                     model=None, matrix_columns=None, sort_order=None):
     """
@@ -295,6 +317,9 @@ def build_dax_query(grouping, measures, filters, slicer_fields, visual_type,
             dax += ",\n".join(select_parts)
             dax += "\n    )\n)"
         return "Pattern 2: Columns Only", dax
+
+    # Remap sort_order raw column refs → measure aliases for SUMMARIZECOLUMNS
+    sort_order = _remap_sort_order(sort_order, measures)
 
     # ----- Pattern 3M: Matrix Summary (row groupings + measures, no column-axis) -----
     if matrix_columns and grouping and measures:
@@ -512,6 +537,7 @@ def build_matrix_pivot_query(grouping, measures, matrix_columns, column_values,
 
     all_args = cols + calc_parts + flat_parts
     dax = "EVALUATE\nSUMMARIZECOLUMNS (\n" + ",\n".join(all_args) + "\n)"
+    sort_order = _remap_sort_order(sort_order, measures)
     if sort_order:
         dax += f"\nORDER BY {sort_order}"
     if auto_flat:

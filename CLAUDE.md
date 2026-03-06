@@ -95,13 +95,12 @@ Present the pages found in the report as a numbered list:
 Ask: *"Which page do you want to explore?"*
 
 ### Step 3: VISUAL SELECTION — List Visuals on the Page
-Once the user picks a page, list every visual on that page with its name and type:
+Once the user picks a page, list every data visual on that page with its name and type. **NEVER list filter-only visuals (slicers, filter fields) as selectable options** — filters are context, not visuals. Only list visuals that produce data queries (cards, charts, tables, maps, etc.).
 
 > **Visuals on "Overview":**
 > 1. Revenue Won (card)
 > 2. Pipeline by Stage (barChart)
 > 3. Opportunities by Sales Stage (pieChart)
-> 4. Sales Stage Slicer (slicer)
 
 Ask: *"Which visual do you want the DAX query for?"*
 
@@ -114,12 +113,15 @@ When the user picks a visual, deliver exactly three things:
 
 **2. Unfiltered (base) DAX query** — the raw query without any filters. Useful for exploring the full dataset.
 
-**3. Custom filter offer** — list the filter-eligible fields and invite the user to apply their own:
+**3. Custom filter offer** — list **ALL** filter-eligible fields (every column/slicer that could affect the DAX output) and invite the user to apply their own. Never show just a subset — list every filterable field from the semantic model that relates to this visual's tables, including fields from slicers on the same page. Group them by table for readability when there are many:
 
 > "You can also apply custom filters on these fields:"
 > - `'Opportunities'[Status]` (text)
-> - `'Calendar'[Date]` (date)
 > - `'Opportunities'[Revenue]` (numeric)
+> - `'Calendar'[Date]` (date)
+> - `'Calendar'[Year]` (int64)
+> - `'Calendar'[Month]` (string)
+> - *(... all related fields)*
 >
 > *"Give me a value and I'll wrap the query with CALCULATETABLE for you."*
 

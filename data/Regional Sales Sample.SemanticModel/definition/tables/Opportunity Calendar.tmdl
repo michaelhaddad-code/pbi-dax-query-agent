@@ -136,18 +136,16 @@ table 'Opportunity Calendar'
 
 		annotation SummarizationSetBy = Automatic
 
-	partition 'Opportunity Calendar-e96137a3-9df6-439b-a40b-8871bb9ea948' = m
+	partition Opportunity Calendar-e96137a3-9df6-439b-a40b-8871bb9ea948 = m
 		mode: import
 		source =
-				let
-				    Source = Excel.Workbook(File.Contents("C:\Users\chamil\Desktop\Opportunity calendar.xlsx"), null, true),
-				    #"Date table for stores_Sheet" = Source{[Item="Date table for stores",Kind="Sheet"]}[Data],
-				    #"Promoted Headers" = Table.PromoteHeaders(#"Date table for stores_Sheet", [PromoteAllScalars=true]),
-				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"Date", type datetime}, {"MONTH", type text}, {"RELATIVE 07 DAY PERIOD", Int64.Type}, {"RELATIVE 30 DAY PERIOD", Int64.Type}, {"RELATIVE DAY", type datetime}, {"RELATIVE MONTH", Int64.Type}, {"RELATIVE WEEK", Int64.Type}, {"WEEK", type datetime}, {"YEAR", Int64.Type}, {"YEAR MONTH", type date}, {"YEAR WEEK", type text}, {"DAY", type datetime}, {"DaySeq", Int64.Type}, {"MONTH NUMBER", Int64.Type}, {"YEAR MONTH NUMBER", Int64.Type}})
-				in
-				    #"Changed Type"
-
-	changedProperty = Name
+			let
+			    Source = Excel.Workbook(File.Contents("C:\Users\chamil\Desktop\Opportunity calendar.xlsx"), null, true),
+			    #"Date table for stores_Sheet" = Source{[Item="Date table for stores",Kind="Sheet"]}[Data],
+			    #"Promoted Headers" = Table.PromoteHeaders(#"Date table for stores_Sheet", [PromoteAllScalars=true]),
+			    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"Date", type datetime}, {"MONTH", type text}, {"RELATIVE 07 DAY PERIOD", Int64.Type}, {"RELATIVE 30 DAY PERIOD", Int64.Type}, {"RELATIVE DAY", type datetime}, {"RELATIVE MONTH", Int64.Type}, {"RELATIVE WEEK", Int64.Type}, {"WEEK", type datetime}, {"YEAR", Int64.Type}, {"YEAR MONTH", type date}, {"YEAR WEEK", type text}, {"DAY", type datetime}, {"DaySeq", Int64.Type}, {"MONTH NUMBER", Int64.Type}, {"YEAR MONTH NUMBER", Int64.Type}})
+			in
+			    #"Changed Type"
 
 	annotation PBI_ResultType = Table
 
