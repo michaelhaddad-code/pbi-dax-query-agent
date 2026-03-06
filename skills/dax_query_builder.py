@@ -1469,9 +1469,12 @@ def get_single_visual_query(visuals, page_filters, visual_search,
                 calc_group_auto = True
 
         if effective_column_values:
+            # Calculation groups affect all measures via SELECTEDMEASURE() —
+            # skip flat-measure auto-detection (pass empty list to disable it)
+            effective_flat = [] if calc_group_auto else flat_measures
             pivot_result = build_matrix_pivot_query(
                 grouping, measures, matrix_columns, effective_column_values, model,
-                flat_measures=flat_measures, sort_order=sort_order
+                flat_measures=effective_flat, sort_order=sort_order
             )
             # 3-tuple when auto-detection found flat measures, 2-tuple otherwise
             if len(pivot_result) == 3:

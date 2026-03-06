@@ -129,9 +129,10 @@ If the user provides custom filter values, wrap the base query accordingly and p
 When a Matrix has fields on the Columns axis (e.g., SeparationReason → Involuntary/Voluntary), PBI pivots them into column groups. The standard SUMMARIZECOLUMNS would cause measures to return BLANK for the column-axis field. Instead:
 
 1. **Detect** the Matrix column-axis field (usage = "Visual Matrix Column")
-2. **Present the preflight VALUES() query** and ask the user to run it in DAX Studio
-3. **User provides the distinct values** (e.g., `Involuntary, Voluntary`)
-4. **Generate the pivoted CALCULATE query** — one `CALCULATE([Measure], column = value)` per value × measure
+2. **Check for calculation group auto-detection first.** If `result['calc_group_auto']` is True, the column values were auto-populated from TMDL `calculationItem` entries — skip the preflight query entirely and use `result['pivot_dax_query']` as the primary output. Tell the user: "Calculation group `Table[Column]` auto-detected — N items: X, Y, Z. No preflight query needed."
+3. **If NOT a calculation group:** present the preflight VALUES() query and ask the user to run it in DAX Studio
+4. **User provides the distinct values** (e.g., `Involuntary, Voluntary`)
+5. **Generate the pivoted CALCULATE query** — one `CALCULATE([Measure], column = value)` per value × measure
 5. **Auto-detect flat measures:** When a semantic model with relationships is loaded, measures whose home table is unreachable from the column-axis table via filter lineage are automatically excluded from pivoting and included as flat columns. If any measures were auto-excluded, tell the user (e.g., "Auto-detected **Actives**, **Act SPLY** as unrelated to SeparationReason (no filter path in the model). These are included as flat columns."). This catches most "no relationship path" cases. **Caveat:** lineage misses edge cases where the path exists but measure logic conflicts (e.g., `[Actives]` filtering to `ISBLANK(TermDate)` while SeparationReason flows through TermReason). For these, the BLANK warning below is the safety net.
 6. **Warn about potential BLANK columns (safety net):** After generating the pivot query, tell the user: "If any columns return BLANK, tell me which measures and I'll move them to flat (unpivoted) columns." Use `flat_measures` param in `build_matrix_pivot_query` / `get_single_visual_query` to regenerate.
 7. If the user can't run the preflight, **fall back** to the summary query (row groupings + all measures, no column-axis field) and note the limitation
@@ -367,7 +368,7 @@ Reads the metadata extractor output (Skill 1's Excel) and generates a DAX query 
   - `build_matrix_pivot_query()` — generates pivoted SUMMARIZECOLUMNS with CALCULATE per (column_value × measure) pair. When `flat_measures` is None and model has relationships, auto-detects unreachable measures via `auto_detect_flat_measures()` and excludes them from pivoting
   - `build_filter_graph(relationships)` — builds directed filter-propagation graph from `TmdlRelationship` objects (dimension→fact edges; bidirectional for `bothDirections`)
   - `can_filter_reach(graph, source_table, target_table)` — BFS reachability check through the filter graph
-  - `auto_detect_flat_measures(measures, matrix_columns, model)` — uses filter lineage to find measures whose home table is unreachable from the column-axis table; these are included as flat (unpivoted) columns
+  - `auto_detect_flat_measures(measures, matrix_columns, model)` — uses filter lineage to find measures whose home table is unreachable from the column-axis table; these are included as flat (unpivoted) columns. **Skipped when the column-axis is a calculation group** (`calc_group_auto=True`), because calculation groups affect all measures via `SELECTEDMEASURE()` regardless of relationship paths
   - `_is_measure_filter()` — detects measure-based filter expressions (bare `[Measure]` refs, BLANK checks) vs column-based (`'Table'[Column]`)
   - `wrap_dax_with_filters()` — wraps base DAX with CALCULATETABLE/CALCULATE for column filters; measure-based filters (e.g. `NOT ([Measure] = BLANK())`) are wrapped with outer FILTER() instead (they're invalid inside CALCULATETABLE)
   - `build_bookmark_queries()` — orchestrates bookmark DAX generation for all visible visuals
@@ -395,7 +396,7 @@ Reusable TMDL semantic model parser. Extracts both measures AND columns from TMD
   2. Falls back to `relationships.tmdl` (native PBIP format) if no relationships loaded
   - Both formats produce the same `TmdlRelationship` objects
 - **Data classes:**
-  - `SemanticModel` -- measures dict, columns dict, case-insensitive name indexes, relationships list
+  - `SemanticModel` -- measures dict, columns dict, case-insensitive name indexes, relationships list, calculation_groups dict `{(table, column): [item_names]}`
   - `TmdlColumn` -- table, name, data_type, is_hidden
   - `TmdlRelationship` -- from_table, from_column, to_table, to_column, is_active, cardinality, cross_filtering
 
@@ -471,6 +472,7 @@ python skills/chart_generator.py \
 11. **Relative date filters: keep explanations simple** — When a filter uses relative date offsets that can't be resolved statically, give a one-line disclaimer (e.g., "This report uses a relative date filter, so the year values `{2025, 2024}` may differ at runtime."). Do NOT explain PBI internals, offset encoding, or how relative dates work unless the user specifically asks.
 12. **ALWAYS check the Filter Expressions sheet for preset filter values** — The Report Metadata sheet only lists filter *field names*. Preset values (e.g., `'Date'[Year] = 2014`) are in the Filter Expressions sheet. Before presenting a filtered DAX query, ALWAYS cross-reference Filter Expressions for report-level, page-level, and visual-level preset values. Use `collect_filters_for_visual()` or pass `filter_expr_data` to `get_single_visual_query()`. Never tell the user "no preset values" without checking this sheet first.
 13. **ALWAYS generate DAX queries by calling `get_single_visual_query()` programmatically — never hand-write measure references.** The UI field name (e.g., "Total Sales") is the display label set by the report author and does NOT match the semantic model measure name. The actual measure name is `col_sm.split(',')[0]` (e.g., "Total Category Volume"). `get_single_visual_query()` resolves this automatically. Only fall back to hand-written DAX for edge cases the code cannot handle (e.g., custom pivot logic, Pattern 3M with user-supplied column values), and clearly note when doing so. Always call `read_extractor_output()` which returns 4 values: `visuals, page_filters, bookmarks, filter_expr_data` — pass `filter_expr_data` to `get_single_visual_query()`.
+14. **ALWAYS pass `model` to `get_single_visual_query()`.** Load it with `parse_semantic_model(model_root)` and pass as `model=model`. Without `model`, calculation group auto-detection, flat measure detection, and formula lookup all fail silently — the function won't error, it will just produce degraded output (e.g., asking users for a preflight query when calc group items are already in the TMDL).
 
 ## Validation Status
 The pipeline has been manually cross-checked against four reports:
