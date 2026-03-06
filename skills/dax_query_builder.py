@@ -1481,6 +1481,15 @@ def get_single_visual_query(visuals, page_filters, visual_search,
                 _, pivot_dax_query, auto_flat_measures = pivot_result
             else:
                 _, pivot_dax_query = pivot_result
+        else:
+            # Non-calc-group column with no user-supplied values — auto-flatten
+            # by including the column-axis field(s) as row groupings in the base query.
+            extended_grouping = list(grouping) + list(matrix_columns)
+            pattern, base_dax = build_dax_query(
+                extended_grouping, measures, filters, slicer_fields,
+                visual_type, model, matrix_columns=[], sort_order=sort_order
+            )
+            pattern = "Pattern 3M: Matrix Flattened"
 
     # --- Auto-collect preset filters from Filter Expressions sheet ---
     preset_filters = []

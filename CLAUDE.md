@@ -130,12 +130,10 @@ When a Matrix has fields on the Columns axis (e.g., SeparationReason → Involun
 
 1. **Detect** the Matrix column-axis field (usage = "Visual Matrix Column")
 2. **Check for calculation group auto-detection first.** If `result['calc_group_auto']` is True, the column values were auto-populated from TMDL `calculationItem` entries — skip the preflight query entirely and use `result['pivot_dax_query']` as the primary output. Tell the user: "Calculation group `Table[Column]` auto-detected — N items: X, Y, Z. No preflight query needed."
-3. **If NOT a calculation group:** present the preflight VALUES() query and ask the user to run it in DAX Studio
-4. **User provides the distinct values** (e.g., `Involuntary, Voluntary`)
-5. **Generate the pivoted CALCULATE query** — one `CALCULATE([Measure], column = value)` per value × measure
+3. **If NOT a calculation group:** the query is **auto-flattened** — the column-axis field is included as an additional row grouping in SUMMARIZECOLUMNS (pattern = "Pattern 3M: Matrix Flattened"). This produces the same data in unpivoted form (e.g., rows of `Year | Month | Sales` instead of one column per year). No preflight query or user interaction needed. Tell the user the data is flattened and can be pivoted in Excel/PowerPoint.
+4. **If the user provides column values explicitly** (via `column_values` param), generate the pivoted CALCULATE query — one `CALCULATE([Measure], column = value)` per value × measure.
 5. **Auto-detect flat measures:** When a semantic model with relationships is loaded, measures whose home table is unreachable from the column-axis table via filter lineage are automatically excluded from pivoting and included as flat columns. If any measures were auto-excluded, tell the user (e.g., "Auto-detected **Actives**, **Act SPLY** as unrelated to SeparationReason (no filter path in the model). These are included as flat columns."). This catches most "no relationship path" cases. **Caveat:** lineage misses edge cases where the path exists but measure logic conflicts (e.g., `[Actives]` filtering to `ISBLANK(TermDate)` while SeparationReason flows through TermReason). For these, the BLANK warning below is the safety net.
 6. **Warn about potential BLANK columns (safety net):** After generating the pivot query, tell the user: "If any columns return BLANK, tell me which measures and I'll move them to flat (unpivoted) columns." Use `flat_measures` param in `build_matrix_pivot_query` / `get_single_visual_query` to regenerate.
-7. If the user can't run the preflight, **fall back** to the summary query (row groupings + all measures, no column-axis field) and note the limitation
 
 **Formatting rules for DAX output:**
 - Use fenced code blocks with `dax` language tag
